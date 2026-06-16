@@ -68,6 +68,44 @@ services:
       timeout: 5s
       retries: 5
 
+  survey-scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: authwifi-survey-scheduler
+    restart: unless-stopped
+    command: python workers/survey_scheduler.py
+    environment:
+      DATABASE_URL: postgresql://authwifi:authwifi@postgres:9999/authwifi
+      RABBITMQ_URL: amqp://authwifi:authwifi@rabbitmq:5672/
+      SCHEDULER_INTERVAL_SECONDS: ${SCHEDULER_INTERVAL_SECONDS:-3600}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  survey-sender:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: authwifi-survey-sender
+    restart: unless-stopped
+    command: python workers/survey_sender.py
+    environment:
+      DATABASE_URL: postgresql://authwifi:authwifi@postgres:9999/authwifi
+      RABBITMQ_URL: amqp://authwifi:authwifi@rabbitmq:5672/
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-in-production-1234567890abcdef}
+      BASE_URL: ${BASE_URL:-http://localhost:8000}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-noreply@authwifi.it}
+      SENDGRID_FROM_NAME: ${SENDGRID_FROM_NAME:-Authwifi}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: authwifi-rabbitmq

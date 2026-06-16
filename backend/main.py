@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import engine
 from models import Base
-from routers import auth, portal, crm, tenants, sites, stats, managers, superadmin, whitelist, blacklist, segments
+from routers import auth, portal, crm, tenants, sites, stats, managers, superadmin, whitelist, blacklist, segments, survey
 
 logging.basicConfig(level=logging.INFO)
 
@@ -47,6 +47,7 @@ app.include_router(superadmin.router)
 app.include_router(whitelist.router)
 app.include_router(blacklist.router)
 app.include_router(segments.router)
+app.include_router(survey.router)
 
 
 @app.get("/health")

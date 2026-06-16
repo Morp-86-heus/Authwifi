@@ -156,6 +156,9 @@ class Site(Base):
     background_image_url: Mapped[str | None] = mapped_column("backgroundImageUrl", String, nullable=True)
     hero_image_url: Mapped[str | None] = mapped_column("heroImageUrl", String, nullable=True)
 
+    survey_enabled: Mapped[bool] = mapped_column("surveyEnabled", Boolean, default=True, server_default="true")
+    survey_hours_delay: Mapped[int] = mapped_column("surveyHoursDelay", Integer, default=24, server_default="24")
+
     facebook_url: Mapped[str | None] = mapped_column("facebookUrl", String, nullable=True)
     instagram_url: Mapped[str | None] = mapped_column("instagramUrl", String, nullable=True)
     tripadvisor_url: Mapped[str | None] = mapped_column("tripadvisorUrl", String, nullable=True)
@@ -197,11 +200,14 @@ class Guest(Base):
     segment_id: Mapped[str | None] = mapped_column("segmentId", String, ForeignKey("segments.id"), nullable=True)
     sub_segment_id: Mapped[str | None] = mapped_column("subSegmentId", String, ForeignKey("sub_segments.id"), nullable=True)
 
+    survey_email_sent_at: Mapped[datetime | None] = mapped_column("surveyEmailSentAt", DateTime, nullable=True)
+
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="guests")
     sessions: Mapped[list["WifiSession"]] = relationship("WifiSession", back_populates="guest")
     consents: Mapped[list["Consent"]] = relationship("Consent", back_populates="guest")
     segment: Mapped[Optional["Segment"]] = relationship("Segment", viewonly=True)
     sub_segment: Mapped[Optional["SubSegment"]] = relationship("SubSegment", viewonly=True)
+    survey_responses: Mapped[list["SurveyResponse"]] = relationship("SurveyResponse", back_populates="guest")
 
 
 class WifiSession(Base):
@@ -295,3 +301,20 @@ class SubSegment(Base):
     created_at: Mapped[datetime] = mapped_column("createdAt", DateTime, server_default=func.now())
 
     segment: Mapped["Segment"] = relationship("Segment", back_populates="sub_segments")
+
+
+class SurveyResponse(Base):
+    __tablename__ = "survey_responses"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    guest_id: Mapped[str] = mapped_column("guestId", String, ForeignKey("guests.id"), nullable=False)
+    site_id: Mapped[str] = mapped_column("siteId", String, ForeignKey("sites.id"), nullable=False)
+    tenant_id: Mapped[str] = mapped_column("tenantId", String, ForeignKey("tenants.id"), nullable=False)
+    nps_score: Mapped[int | None] = mapped_column("npsScore", Integer, nullable=True)
+    comment: Mapped[str | None] = mapped_column(String, nullable=True)
+    survey_token: Mapped[str] = mapped_column("surveyToken", String, unique=True, nullable=False)
+    submitted_at: Mapped[datetime | None] = mapped_column("submittedAt", DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column("createdAt", DateTime, server_default=func.now())
+
+    guest: Mapped["Guest"] = relationship("Guest", back_populates="survey_responses")
+    site: Mapped["Site"] = relationship("Site")
