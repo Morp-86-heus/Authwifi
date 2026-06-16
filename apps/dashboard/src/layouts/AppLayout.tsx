@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Wifi, LayoutDashboard, Users, Settings, LogOut, UsersRound, ShieldCheck, AlertTriangle, X, Eye, EyeOff, Tags } from 'lucide-react';
+import { Wifi, LayoutDashboard, Users, Settings, LogOut, UsersRound, ShieldCheck, AlertTriangle, X, Eye, EyeOff, Tags, MessageSquareDot } from 'lucide-react';
 import { useAuthStore } from '../stores/auth';
 import { useEffect, useState } from 'react';
 import api from '../api/client';
@@ -70,6 +70,9 @@ export default function AppLayout() {
           )}
           {isSuperAdmin && (
             <NavItem to="/admin" icon={<ShieldCheck className="w-4 h-4" />} label="SuperAdmin" />
+          )}
+          {canManageSettings && (
+            <NavItem to="/survey" icon={<MessageSquareDot className="w-4 h-4" />} label="Survey & NPS" />
           )}
           {canManageSettings && (
             <NavItem to="/settings" icon={<Settings className="w-4 h-4" />} label="Impostazioni" />

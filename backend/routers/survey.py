@@ -1,14 +1,16 @@
 import logging
 from datetime import datetime
+from typing import Optional
 
-from fastapi import APIRouter, Depends, Form
+from fastapi import APIRouter, Depends, Form, Query
 from fastapi.responses import HTMLResponse
 from jose import JWTError, jwt
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
-from auth import SECRET_KEY
+from auth import SECRET_KEY, get_current_manager, require_roles
 from database import get_db
-from models import Site, SurveyResponse
+from models import Guest, Site, SurveyResponse
 
 router = APIRouter(prefix="/survey", tags=["survey"])
 logger = logging.getLogger(__name__)
@@ -163,6 +165,78 @@ def _thank_you_page(site: Site, nps: int) -> str:
 </div>
 </body>
 </html>"""
+
+
+@router.get("/responses")
+def list_responses(
+    site_id: Optional[str] = Query(default=None),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, le=200),
+    db: Session = Depends(get_db),
+    current: dict = Depends(get_current_manager),
+):
+    q = (
+        db.query(SurveyResponse, Guest, Site)
+        .join(Guest, SurveyResponse.guest_id == Guest.id)
+        .join(Site, SurveyResponse.site_id == Site.id)
+        .filter(
+            SurveyResponse.tenant_id == current["tenant_id"],
+            SurveyResponse.submitted_at.isnot(None),
+        )
+    )
+    if site_id:
+        q = q.filter(SurveyResponse.site_id == site_id)
+    if current["site_ids"] is not None:
+        q = q.filter(SurveyResponse.site_id.in_(current["site_ids"]))
+
+    total = q.count()
+
+    # Aggregate stats
+    stats_q = db.query(
+        func.avg(SurveyResponse.nps_score).label("avg"),
+        func.count(SurveyResponse.id).label("total"),
+        func.sum(case((SurveyResponse.nps_score >= 9, 1), else_=0)).label("promoters"),
+        func.sum(case((SurveyResponse.nps_score <= 6, 1), else_=0)).label("detractors"),
+    ).filter(
+        SurveyResponse.tenant_id == current["tenant_id"],
+        SurveyResponse.submitted_at.isnot(None),
+    )
+    if site_id:
+        stats_q = stats_q.filter(SurveyResponse.site_id == site_id)
+    if current["site_ids"] is not None:
+        stats_q = stats_q.filter(SurveyResponse.site_id.in_(current["site_ids"]))
+    stats = stats_q.first()
+
+    rows = q.order_by(SurveyResponse.submitted_at.desc()).offset(skip).limit(limit).all()
+
+    items = [
+        {
+            "id": sr.id,
+            "npsScore": sr.nps_score,
+            "comment": sr.comment,
+            "submittedAt": sr.submitted_at.isoformat() if sr.submitted_at else None,
+            "guestEmail": g.email,
+            "guestFirstName": g.first_name,
+            "guestLastName": g.last_name,
+            "siteName": s.name,
+            "siteId": sr.site_id,
+        }
+        for sr, g, s in rows
+    ]
+
+    avg_nps = round(float(stats.avg), 1) if stats and stats.avg is not None else None
+    n = stats.total or 0
+    promoters_pct = round((stats.promoters or 0) / n * 100) if n else 0
+    detractors_pct = round((stats.detractors or 0) / n * 100) if n else 0
+
+    return {
+        "total": total,
+        "avgNps": avg_nps,
+        "promotersPct": promoters_pct,
+        "detractorsPct": detractors_pct,
+        "passivesPct": 100 - promoters_pct - detractors_pct if n else 0,
+        "items": items,
+    }
 
 
 @router.get("/{token}", response_class=HTMLResponse)

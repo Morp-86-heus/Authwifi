@@ -50,6 +50,8 @@ class SiteOut(BaseModel):
     google_review_url: Optional[str] = None
     booking_url: Optional[str] = None
     twitter_url: Optional[str] = None
+    survey_enabled: bool = True
+    survey_hours_delay: int = 24
     created_at: datetime
     updated_at: datetime
 
@@ -98,6 +100,8 @@ class UpdateSiteDto(BaseModel):
     google_review_url: Optional[str] = None
     booking_url: Optional[str] = None
     twitter_url: Optional[str] = None
+    survey_enabled: Optional[bool] = None
+    survey_hours_delay: Optional[int] = None
 
 
 @router.post("", status_code=201)

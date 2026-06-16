@@ -7,6 +7,7 @@ import GuestsPage from './pages/GuestsPage';
 import ManagersPage from './pages/ManagersPage';
 import SuperAdminPage from './pages/SuperAdminPage';
 import SegmentsPage from './pages/SegmentsPage';
+import SurveyPage from './pages/SurveyPage';
 import AppLayout from './layouts/AppLayout';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="admin" element={<SuperAdminPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="segments" element={<SegmentsPage />} />
+        <Route path="survey" element={<SurveyPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

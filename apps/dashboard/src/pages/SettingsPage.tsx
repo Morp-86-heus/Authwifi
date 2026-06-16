@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Save, Wifi, Palette, Settings2, ShieldCheck, Ban, Plus, Trash2, Globe } from 'lucide-react';
+import { Save, Wifi, Palette, Settings2, ShieldCheck, Ban, Plus, Trash2, Globe, MessageSquareDot } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../api/client';
 import ImageUploader from '../components/ImageUploader';
@@ -27,9 +27,11 @@ interface SiteConfig {
   googleReviewUrl: string | null;
   bookingUrl: string | null;
   twitterUrl: string | null;
+  surveyEnabled: boolean;
+  surveyHoursDelay: number;
 }
 
-type Tab = 'branding' | 'omada' | 'login' | 'whitelist' | 'blacklist' | 'social';
+type Tab = 'branding' | 'omada' | 'login' | 'whitelist' | 'blacklist' | 'social' | 'survey';
 
 interface BlacklistEntry {
   id: string;
@@ -122,6 +124,7 @@ export default function SettingsPage() {
     { key: 'whitelist',  label: 'Whitelist MAC',   icon: <ShieldCheck className="w-4 h-4" /> },
     { key: 'blacklist',  label: 'Blacklist MAC',    icon: <Ban className="w-4 h-4" /> },
     { key: 'social',     label: 'Social',           icon: <Globe className="w-4 h-4" /> },
+    { key: 'survey',     label: 'Survey',           icon: <MessageSquareDot className="w-4 h-4" /> },
   ];
 
   const loginMethodOptions = [
@@ -435,6 +438,89 @@ export default function SettingsPage() {
             </Field>
           ))}
         </Card>
+      )}
+
+      {/* Tab: Survey */}
+      {tab === 'survey' && (
+        <div className="space-y-6">
+          <Card title="Impostazioni survey post-soggiorno">
+            <p className="text-sm text-gray-500 -mt-2 mb-2">
+              Quando abilitata, il sistema invia automaticamente un'email di valutazione NPS agli ospiti dopo un numero configurabile di ore dall'ultima sessione WiFi.
+            </p>
+
+            <Field label="Stato survey">
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <div
+                  onClick={() => update({ surveyEnabled: !config.surveyEnabled })}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${config.surveyEnabled ? 'bg-brand-500' : 'bg-gray-200'}`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${config.surveyEnabled ? 'translate-x-5' : ''}`}
+                  />
+                </div>
+                <span className="text-sm text-gray-700">
+                  {config.surveyEnabled ? 'Survey abilitata' : 'Survey disabilitata'}
+                </span>
+              </label>
+            </Field>
+
+            <Field label="Ore dopo l'ultima sessione WiFi">
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min={1}
+                  max={720}
+                  value={config.surveyHoursDelay}
+                  onChange={(e) => update({ surveyHoursDelay: parseInt(e.target.value) || 24 })}
+                  className={inputCls + ' w-24 text-center font-mono'}
+                  disabled={!config.surveyEnabled}
+                />
+                <span className="text-sm text-gray-500">ore (default: 24)</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                L'email viene inviata solo se l'ospite ha fornito l'email e non ha già ricevuto una survey.
+              </p>
+            </Field>
+          </Card>
+
+          <Card title="Review funnel">
+            <p className="text-sm text-gray-500 -mt-2">
+              Gli ospiti che danno un punteggio NPS di 9 o 10 ricevono un invito diretto a lasciare una recensione su Google.
+              Configura il link nel tab <strong>Social</strong>.
+            </p>
+            <div className="flex items-center gap-3 mt-3 p-3 bg-gray-50 rounded-xl text-sm">
+              <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
+                <span className="text-green-600 font-bold text-xs">9+</span>
+              </div>
+              <div>
+                <p className="font-medium text-gray-700">Promotori (NPS 9-10)</p>
+                <p className="text-xs text-gray-400">
+                  {config.googleReviewUrl
+                    ? `→ Bottone "Recensione Google" (${config.googleReviewUrl.slice(0, 40)}...)`
+                    : '→ Nessun link Google configurato — vai nel tab Social'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 mt-2 p-3 bg-gray-50 rounded-xl text-sm">
+              <div className="w-8 h-8 rounded-lg bg-yellow-100 flex items-center justify-center shrink-0">
+                <span className="text-yellow-600 font-bold text-xs">7-8</span>
+              </div>
+              <div>
+                <p className="font-medium text-gray-700">Passivi (NPS 7-8)</p>
+                <p className="text-xs text-gray-400">→ Pagina di ringraziamento semplice</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 mt-2 p-3 bg-gray-50 rounded-xl text-sm">
+              <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
+                <span className="text-red-600 font-bold text-xs">0-6</span>
+              </div>
+              <div>
+                <p className="font-medium text-gray-700">Detrattori (NPS 0-6)</p>
+                <p className="text-xs text-gray-400">→ Messaggio "lo trasmetteremo allo staff"</p>
+              </div>
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* Tab: Blacklist MAC */}
