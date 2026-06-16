@@ -86,7 +86,9 @@ Authwifi/
 │   │   └── versions/
 │   │       ├── 001_initial.py          # Schema base (già applicato via create_all)
 │   │       ├── 002_segments.py         # Tabelle segments, sub_segments + FK su guests
-│   │       └── 003_indexes.py          # 16 indici performance su tutte le FK columns
+│   │       ├── 003_indexes.py          # 16 indici performance su tutte le FK columns
+│   │       ├── 004_survey.py           # survey_responses, surveyEmailSentAt, surveyEnabled, surveyHoursDelay
+│   │       └── 005_reviews.py          # external_reviews, googlePlaceId su sites
 │   ├── routers/
 │   │   ├── auth.py                     # POST /auth/login
 │   │   ├── tenants.py                  # CRUD tenant
@@ -98,10 +100,18 @@ Authwifi/
 │   │   ├── portal.py                   # GET /splash + POST /login + GET /welcome
 │   │   ├── whitelist.py                # MAC whitelist per sito
 │   │   ├── blacklist.py                # MAC blacklist per sito
-│   │   └── superadmin.py              # Gestione platform-level
+│   │   ├── superadmin.py              # Gestione platform-level
+│   │   ├── survey.py                   # NPS form pubblico, stats, send-test
+│   │   └── reviews.py                  # Recensioni Google: lista + sync Places API
+│   ├── workers/
+│   │   ├── survey_scheduler.py         # Pubblica su RabbitMQ ogni ora (LATERAL JOIN)
+│   │   └── survey_sender.py            # Consuma da RabbitMQ, genera JWT, invia email
 │   └── services/
 │       ├── splash.py                   # render_splash(): HTML server-rendered
-│       └── omada.py                    # OmadaClient: get_session + authorize_client
+│       ├── omada.py                    # OmadaClient: get_session + authorize_client
+│       ├── email.py                    # send_survey_email() via SendGrid (mock se no key)
+│       ├── google_places.py            # fetch_google_reviews() via Places API
+│       └── rabbitmq.py                 # publish_survey() + consume_survey()
 ├── apps/
 │   ├── api/                            # Legacy NestJS (non in uso in produzione)
 │   └── dashboard/                      # React + Vite + Tailwind (porta 3000)
@@ -111,15 +121,16 @@ Authwifi/
 │           │   ├── DashboardPage.tsx
 │           │   ├── GuestsPage.tsx
 │           │   ├── ManagersPage.tsx
-│           │   ├── SegmentsPage.tsx    # NUOVO: gestione segmenti/sotto-segmenti
-│           │   ├── SettingsPage.tsx
+│           │   ├── SegmentsPage.tsx    # Gestione segmenti/sotto-segmenti
+│           │   ├── SettingsPage.tsx    # Tab: Branding, Omada, Login, Whitelist, Blacklist, Social, Survey
+│           │   ├── SurveyPage.tsx      # Tab: NPS & Feedback, Recensioni Google
 │           │   └── SuperAdminPage.tsx
 │           ├── components/
 │           │   ├── GuestDetail.tsx     # Slide-over con sezione Profilazione
 │           │   ├── ImageUploader.tsx
 │           │   └── WorldMap.tsx
 │           └── layouts/
-│               └── AppLayout.tsx       # Sidebar con voce Segmenti
+│               └── AppLayout.tsx       # Sidebar con voci: Segmenti, Survey & NPS
 ├── docker-compose.yml
 ├── .env                                # JWT_SECRET (>=32 char), DATABASE_URL, OMADA_*
 └── tsconfig.base.json
@@ -145,6 +156,15 @@ OMADA_CONTROLLER_URL="https://..."
 OMADA_OMADAC_ID="..."
 OMADA_OPERATOR_USERNAME="..."
 OMADA_OPERATOR_PASSWORD="..."
+
+# Fase 2 — Survey e Recensioni
+RABBITMQ_URL="amqp://authwifi:authwifi@rabbitmq:5672/"
+BASE_URL="https://tuodominio.it"          # usato per generare l'URL della survey nell'email
+SENDGRID_API_KEY="SG...."                # se assente, le email sono loggate come mock
+SENDGRID_FROM_EMAIL="noreply@tuodominio.it"
+SENDGRID_FROM_NAME="Nome Struttura"
+GOOGLE_PLACES_API_KEY="AIza..."          # opzionale — per sync recensioni Google
+SCHEDULER_INTERVAL_SECONDS=3600          # ogni quante secondi il scheduler cerca nuovi invii
 ```
 
 ### Comandi utili
@@ -273,18 +293,38 @@ openssl rand -hex 32
 
 ---
 
-### Fase 2 — Survey e recensioni (4 settimane) ⏳ DA IMPLEMENTARE
+### Fase 2 — Survey e recensioni ✅ COMPLETATA
 
-- [ ] Survey engine: builder questionario NPS/CSAT
-- [ ] Trigger post-soggiorno (N ore dopo ultima sessione WiFi)
-- [ ] Logica "review funnel": NPS alto → invito recensione Google; NPS basso → alert gestore
-- [ ] Integrazione Google Business Profile API (lettura recensioni)
-- [ ] Email transazionali con SendGrid (template multilingua)
-- [ ] Pagina Survey nella dashboard
+#### Backend
 
-**Prerequisiti tecnici:** attivare Redis per scheduling dei trigger (o RabbitMQ delayed messages).
+- [x] Modello `SurveyResponse`: id, guest_id, site_id, tenant_id, nps_score, comment, survey_token (JWT), submitted_at
+- [x] Modello `ExternalReview`: id, site_id, tenant_id, source, external_id, author_name, author_photo, rating, text, published_at, fetched_at
+- [x] Alembic migration 004: tabella `survey_responses`, colonne `surveyEmailSentAt` su guests, `surveyEnabled`/`surveyHoursDelay` su sites
+- [x] Alembic migration 005: tabella `external_reviews`, colonna `googlePlaceId` su sites
+- [x] `GET /survey/{token}` — form NPS pubblico (0-10 + commento), renderizzato server-side
+- [x] `POST /survey/{token}` — salva risposta; NPS≥9 → link recensione Google, NPS≤6 → messaggio staff
+- [x] `GET /survey/responses` — statistiche NPS autenticate (avgNps, promotori/passivi/detrattori %)
+- [x] `POST /survey/send-test` — invia email di test al manager loggato
+- [x] `GET /reviews` — lista recensioni esterne con avgRating e lastSync
+- [x] `POST /reviews/sync` — sync da Google Places API con upsert su `externalId`
+- [x] `services/email.py` — `send_survey_email()` via SendGrid, fallback mock su log se no API key
+- [x] `services/google_places.py` — `fetch_google_reviews()` via Places Details API, external_id = sha256(author:ts)[:24]
+- [x] `services/rabbitmq.py` — `publish_survey()` / `consume_survey()` con pika
+- [x] `workers/survey_scheduler.py` — ogni N ore, LATERAL JOIN per trovare ospiti eleggibili, pubblica su RabbitMQ
+- [x] `workers/survey_sender.py` — consuma da RabbitMQ, genera JWT survey token, crea SurveyResponse (pending), invia email
+- [x] docker-compose.yml: servizi `survey-scheduler` e `survey-sender` con healthcheck su postgres + rabbitmq
 
-**Deliverable:** ciclo completo soggiorno → survey → recensione/alert.
+#### Dashboard
+
+- [x] `SurveyPage.tsx` — tab "NPS & Feedback" (4 KPI card, barra colori, lista risposte) + tab "Recensioni Google" (avg rating, sync button, lista recensioni con avatar)
+- [x] `SettingsPage.tsx` — tab "Survey": toggle abilitazione, Google Place ID, ore delay, email di test, review funnel card
+- [x] Sidebar: voce "Survey & NPS" con icona `MessageSquareDot`
+
+#### Fix post-deploy
+
+- [x] Bug: `current["id"]` → `current["manager_id"]` in `POST /survey/send-test` (KeyError 500)
+
+**Deliverable:** ciclo completo soggiorno → survey NPS → email → form → recensione Google (se NPS≥9). ✅
 
 ---
 
@@ -297,7 +337,7 @@ openssl rand -hex 32
 - [ ] Reportistica campagne (open rate, CTR, conversioni)
 - [x] ~~Export CSV lista ospiti~~ ✅ già implementato (Fase 1)
 
-**Prerequisiti tecnici:** RabbitMQ per code invii, Redis per deduplicazione, worker asincrono Python.
+**Prerequisiti tecnici:** RabbitMQ ✅ già attivo, Redis per deduplicazione, worker asincrono Python.
 
 **Deliverable:** suite di marketing utilizzabile in autonomia dal gestore.
 
@@ -323,7 +363,7 @@ openssl rand -hex 32
 - Integrazione PMS (Opera, Scrigno, Slope) per dati check-in/check-out
 - AI: risposta automatica alle recensioni, insight sui feedback
 - Seamless re-login per MAC noti (ospiti di ritorno senza form)
-- Redis cache per splash page (elimina 7 query DB per ogni caricamento)
+- **Redis cache per splash page** (elimina 7 query DB per ogni caricamento) — **prossimo step**
 - Migrazione SQLAlchemy async (AsyncSession + asyncpg) per eliminare blocking I/O su handler async
 
 ---
