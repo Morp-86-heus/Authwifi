@@ -179,7 +179,7 @@ def send_test_email(
     from models import Manager
     from services.email import send_survey_email
 
-    manager = db.query(Manager).filter(Manager.id == current["id"]).first()
+    manager = db.query(Manager).filter(Manager.id == current["manager_id"]).first()
     if not manager or not manager.email:
         raise HTTPException(status_code=400, detail="Email manager non trovata")
 
