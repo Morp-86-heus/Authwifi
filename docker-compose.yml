@@ -79,6 +79,7 @@ services:
       DATABASE_URL: postgresql://authwifi:authwifi@postgres:9999/authwifi
       RABBITMQ_URL: amqp://authwifi:authwifi@rabbitmq:5672/
       SCHEDULER_INTERVAL_SECONDS: ${SCHEDULER_INTERVAL_SECONDS:-3600}
+      GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -100,6 +101,7 @@ services:
       SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
       SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-noreply@authwifi.it}
       SENDGRID_FROM_NAME: ${SENDGRID_FROM_NAME:-Authwifi}
+      GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

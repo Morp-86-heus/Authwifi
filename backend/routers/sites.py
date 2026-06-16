@@ -52,6 +52,7 @@ class SiteOut(BaseModel):
     twitter_url: Optional[str] = None
     survey_enabled: bool = True
     survey_hours_delay: int = 24
+    google_place_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -102,6 +103,7 @@ class UpdateSiteDto(BaseModel):
     twitter_url: Optional[str] = None
     survey_enabled: Optional[bool] = None
     survey_hours_delay: Optional[int] = None
+    google_place_id: Optional[str] = None
 
 
 @router.post("", status_code=201)

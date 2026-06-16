@@ -9,6 +9,8 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from auth import SECRET_KEY, get_current_manager, require_roles
+from fastapi import HTTPException
+from models import Manager
 from database import get_db
 from models import Guest, Site, SurveyResponse
 
@@ -165,6 +167,41 @@ def _thank_you_page(site: Site, nps: int) -> str:
 </div>
 </body>
 </html>"""
+
+
+@router.post("/send-test")
+def send_test_email(
+    site_id: Optional[str] = Query(default=None),
+    db: Session = Depends(get_db),
+    current: dict = Depends(get_current_manager),
+):
+    import os
+    from models import Manager
+    from services.email import send_survey_email
+
+    manager = db.query(Manager).filter(Manager.id == current["id"]).first()
+    if not manager or not manager.email:
+        raise HTTPException(status_code=400, detail="Email manager non trovata")
+
+    site_name = "Authwifi"
+    if site_id:
+        site = db.query(Site).filter(
+            Site.id == site_id,
+            Site.tenant_id == current["tenant_id"],
+        ).first()
+        if site:
+            site_name = site.name
+
+    token = jwt.encode(
+        {"type": "survey", "guest_id": "test", "site_id": site_id or "test", "tenant_id": current["tenant_id"]},
+        SECRET_KEY, algorithm=ALGORITHM,
+    )
+    survey_url = f"{os.getenv('BASE_URL', 'http://localhost:8000')}/survey/{token}"
+
+    ok = send_survey_email(manager.email, manager.first_name or "Manager", survey_url, site_name)
+    if ok:
+        return {"success": True, "sentTo": manager.email}
+    raise HTTPException(status_code=500, detail="Errore invio. Verifica SENDGRID_API_KEY nei log del server.")
 
 
 @router.get("/responses")

@@ -29,6 +29,7 @@ interface SiteConfig {
   twitterUrl: string | null;
   surveyEnabled: boolean;
   surveyHoursDelay: number;
+  googlePlaceId: string | null;
 }
 
 type Tab = 'branding' | 'omada' | 'login' | 'whitelist' | 'blacklist' | 'social' | 'survey';
@@ -63,6 +64,8 @@ export default function SettingsPage() {
   const [blMac, setBlMac] = useState('');
   const [blReason, setBlReason] = useState('');
   const [blAdding, setBlAdding] = useState(false);
+  const [testEmailSending, setTestEmailSending] = useState(false);
+  const [testEmailMsg, setTestEmailMsg] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -162,12 +165,12 @@ export default function SettingsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-8 w-fit">
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-8 overflow-x-auto">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
               tab === t.key
                 ? 'bg-white text-gray-900 shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
@@ -290,7 +293,6 @@ export default function SettingsPage() {
             </div>
           </Card>
 
-          {/* Preview */}
           <Card title="Anteprima splash page">
             <div
               className="rounded-xl flex items-center justify-center min-h-48 p-6"
@@ -302,19 +304,11 @@ export default function SettingsPage() {
             >
               <div className="bg-white rounded-2xl shadow-md w-72 overflow-hidden">
                 {config.heroImageUrl && (
-                  <img
-                    src={config.heroImageUrl}
-                    alt="hero"
-                    className="w-full h-20 object-cover"
-                  />
+                  <img src={config.heroImageUrl} alt="hero" className="w-full h-20 object-cover" />
                 )}
                 <div className="p-5 text-center">
                   {config.logoUrl && (
-                    <img
-                      src={config.logoUrl}
-                      alt="logo"
-                      className="max-h-10 max-w-32 object-contain mx-auto mb-3"
-                    />
+                    <img src={config.logoUrl} alt="logo" className="max-h-10 max-w-32 object-contain mx-auto mb-3" />
                   )}
                   <h3 className="font-bold text-gray-900 mb-1 text-sm">
                     {config.welcomeTitle || 'Benvenuto!'}
@@ -339,49 +333,19 @@ export default function SettingsPage() {
       {tab === 'omada' && (
         <Card title="Configurazione controller Omada">
           <Field label="URL controller (es. https://10.0.0.1:8043)">
-            <input
-              type="url"
-              value={config.omadaControllerUrl ?? ''}
-              onChange={(e) => update({ omadaControllerUrl: e.target.value })}
-              placeholder="https://10.0.0.1:8043"
-              className={inputCls}
-            />
+            <input type="url" value={config.omadaControllerUrl ?? ''} onChange={(e) => update({ omadaControllerUrl: e.target.value })} placeholder="https://10.0.0.1:8043" className={inputCls} />
           </Field>
           <Field label="Omada Controller ID">
-            <input
-              type="text"
-              value={config.omadaOmadacId ?? ''}
-              onChange={(e) => update({ omadaOmadacId: e.target.value })}
-              placeholder="a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"
-              className={inputCls + ' font-mono text-sm'}
-            />
+            <input type="text" value={config.omadaOmadacId ?? ''} onChange={(e) => update({ omadaOmadacId: e.target.value })} placeholder="a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4" className={inputCls + ' font-mono text-sm'} />
           </Field>
           <Field label="Site ID Omada">
-            <input
-              type="text"
-              value={config.omadaSiteId ?? ''}
-              onChange={(e) => update({ omadaSiteId: e.target.value })}
-              placeholder="test"
-              className={inputCls}
-            />
+            <input type="text" value={config.omadaSiteId ?? ''} onChange={(e) => update({ omadaSiteId: e.target.value })} placeholder="test" className={inputCls} />
           </Field>
           <Field label="Username operatore hotspot">
-            <input
-              type="text"
-              value={config.omadaOperatorUser ?? ''}
-              onChange={(e) => update({ omadaOperatorUser: e.target.value })}
-              placeholder="Operatore1"
-              className={inputCls}
-            />
+            <input type="text" value={config.omadaOperatorUser ?? ''} onChange={(e) => update({ omadaOperatorUser: e.target.value })} placeholder="Operatore1" className={inputCls} />
           </Field>
           <Field label="Password operatore hotspot">
-            <input
-              type="password"
-              value={config.omadaOperatorPass ?? ''}
-              onChange={(e) => update({ omadaOperatorPass: e.target.value })}
-              placeholder="••••••••"
-              className={inputCls}
-            />
+            <input type="password" value={config.omadaOperatorPass ?? ''} onChange={(e) => update({ omadaOperatorPass: e.target.value })} placeholder="••••••••" className={inputCls} />
           </Field>
           <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-lg mt-2">
             ⚠️ Le credenziali sono salvate in chiaro nel DB. In produzione usare un vault (Fase 4).
@@ -392,49 +356,32 @@ export default function SettingsPage() {
       {/* Tab: Login methods */}
       {tab === 'login' && (
         <Card title="Metodi di accesso al portale">
-          <p className="text-sm text-gray-500 mb-4">
-            Seleziona quali metodi di login mostrare sulla splash page.
-          </p>
+          <p className="text-sm text-gray-500 mb-4">Seleziona quali metodi di login mostrare sulla splash page.</p>
           <div className="space-y-3">
             {loginMethodOptions.map((opt) => (
-              <label
-                key={opt.value}
-                className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors"
-              >
-                <input
-                  type="checkbox"
-                  checked={activeMethods.includes(opt.value)}
-                  onChange={() => toggleMethod(opt.value)}
-                  className="accent-brand-500 w-4 h-4"
-                />
+              <label key={opt.value} className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                <input type="checkbox" checked={activeMethods.includes(opt.value)} onChange={() => toggleMethod(opt.value)} className="accent-brand-500 w-4 h-4" />
                 <span className="text-sm text-gray-800">{opt.label}</span>
               </label>
             ))}
           </div>
         </Card>
       )}
+
       {/* Tab: Social */}
       {tab === 'social' && (
         <Card title="Link social network">
-          <p className="text-sm text-gray-500 mb-4">
-            I link configurati appaiono come icone nella splash page sotto il form di login.
-          </p>
+          <p className="text-sm text-gray-500 mb-4">I link configurati appaiono come icone nella splash page sotto il form di login.</p>
           {([
-            { key: 'facebookUrl',    label: 'Facebook',     placeholder: 'https://facebook.com/tuapagina' },
-            { key: 'instagramUrl',   label: 'Instagram',    placeholder: 'https://instagram.com/tuoprofilo' },
-            { key: 'tripadvisorUrl', label: 'TripAdvisor',  placeholder: 'https://tripadvisor.com/...' },
-            { key: 'googleReviewUrl',label: 'Google Reviews',placeholder: 'https://g.page/...' },
-            { key: 'bookingUrl',     label: 'Booking.com',  placeholder: 'https://booking.com/hotel/...' },
-            { key: 'twitterUrl',     label: 'X (Twitter)',  placeholder: 'https://x.com/tuoprofilo' },
+            { key: 'facebookUrl',     label: 'Facebook',      placeholder: 'https://facebook.com/tuapagina' },
+            { key: 'instagramUrl',    label: 'Instagram',     placeholder: 'https://instagram.com/tuoprofilo' },
+            { key: 'tripadvisorUrl',  label: 'TripAdvisor',   placeholder: 'https://tripadvisor.com/...' },
+            { key: 'googleReviewUrl', label: 'Google Reviews', placeholder: 'https://g.page/...' },
+            { key: 'bookingUrl',      label: 'Booking.com',   placeholder: 'https://booking.com/hotel/...' },
+            { key: 'twitterUrl',      label: 'X (Twitter)',   placeholder: 'https://x.com/tuoprofilo' },
           ] as { key: keyof SiteConfig; label: string; placeholder: string }[]).map(({ key, label, placeholder }) => (
             <Field key={key} label={label}>
-              <input
-                type="url"
-                value={(config[key] as string) ?? ''}
-                onChange={(e) => update({ [key]: e.target.value || null })}
-                placeholder={placeholder}
-                className={inputCls}
-              />
+              <input type="url" value={(config[key] as string) ?? ''} onChange={(e) => update({ [key]: e.target.value || null })} placeholder={placeholder} className={inputCls} />
             </Field>
           ))}
         </Card>
@@ -445,23 +392,38 @@ export default function SettingsPage() {
         <div className="space-y-6">
           <Card title="Impostazioni survey post-soggiorno">
             <p className="text-sm text-gray-500 -mt-2 mb-2">
-              Quando abilitata, il sistema invia automaticamente un'email di valutazione NPS agli ospiti dopo un numero configurabile di ore dall'ultima sessione WiFi.
+              Quando abilitata, il sistema invia automaticamente un'email NPS agli ospiti dopo un numero configurabile di ore dall'ultima sessione WiFi.
             </p>
 
             <Field label="Stato survey">
               <label className="flex items-center gap-3 cursor-pointer select-none">
                 <div
                   onClick={() => update({ surveyEnabled: !config.surveyEnabled })}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${config.surveyEnabled ? 'bg-brand-500' : 'bg-gray-200'}`}
+                  className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${config.surveyEnabled ? 'bg-brand-500' : 'bg-gray-200'}`}
                 >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${config.surveyEnabled ? 'translate-x-5' : ''}`}
-                  />
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${config.surveyEnabled ? 'translate-x-5' : ''}`} />
                 </div>
                 <span className="text-sm text-gray-700">
                   {config.surveyEnabled ? 'Survey abilitata' : 'Survey disabilitata'}
                 </span>
               </label>
+            </Field>
+
+            <Field label="Google Place ID">
+              <input
+                type="text"
+                value={config.googlePlaceId ?? ''}
+                onChange={(e) => update({ googlePlaceId: e.target.value || null })}
+                placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4"
+                className={inputCls + ' font-mono text-sm'}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Trovalo su{' '}
+                <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noopener noreferrer" className="text-brand-500 hover:underline">
+                  Google Place ID Finder
+                </a>
+                {' '}— serve per sincronizzare le recensioni Google nella pagina Survey.
+              </p>
             </Field>
 
             <Field label="Ore dopo l'ultima sessione WiFi">
@@ -483,42 +445,58 @@ export default function SettingsPage() {
             </Field>
           </Card>
 
+          <Card title="Email di test">
+            <p className="text-sm text-gray-500 -mt-2 mb-3">
+              Invia una email survey di prova al tuo indirizzo per verificare che la configurazione SendGrid funzioni.
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={async () => {
+                  setTestEmailSending(true);
+                  setTestEmailMsg(null);
+                  try {
+                    const params = siteId ? `?site_id=${siteId}` : '';
+                    const { data } = await api.post<{ success: boolean; sentTo: string }>(`/survey/send-test${params}`);
+                    setTestEmailMsg(`Email inviata a ${data.sentTo}`);
+                  } catch (e: unknown) {
+                    const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+                    setTestEmailMsg(detail ?? 'Errore invio email');
+                  } finally {
+                    setTestEmailSending(false);
+                  }
+                }}
+                disabled={testEmailSending}
+                className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+              >
+                {testEmailSending ? 'Invio...' : 'Invia email di test'}
+              </button>
+              {testEmailMsg && (
+                <p className={`text-sm ${testEmailMsg.startsWith('Email inviata') ? 'text-green-600' : 'text-red-500'}`}>
+                  {testEmailMsg}
+                </p>
+              )}
+            </div>
+          </Card>
+
           <Card title="Review funnel">
             <p className="text-sm text-gray-500 -mt-2">
-              Gli ospiti che danno un punteggio NPS di 9 o 10 ricevono un invito diretto a lasciare una recensione su Google.
-              Configura il link nel tab <strong>Social</strong>.
+              Gli ospiti con NPS 9-10 ricevono un invito diretto a lasciare una recensione Google. Configura il link nel tab <strong>Social</strong>.
             </p>
-            <div className="flex items-center gap-3 mt-3 p-3 bg-gray-50 rounded-xl text-sm">
-              <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
-                <span className="text-green-600 font-bold text-xs">9+</span>
+            {([
+              { range: '9+', bg: 'bg-green-100', text: 'text-green-600', label: 'Promotori (NPS 9-10)', desc: config.googleReviewUrl ? `→ Bottone "Recensione Google"` : '→ Nessun link Google — vai nel tab Social' },
+              { range: '7-8', bg: 'bg-yellow-100', text: 'text-yellow-600', label: 'Passivi (NPS 7-8)', desc: '→ Pagina di ringraziamento semplice' },
+              { range: '0-6', bg: 'bg-red-100', text: 'text-red-600', label: 'Detrattori (NPS 0-6)', desc: '→ Messaggio "lo trasmetteremo allo staff"' },
+            ]).map((row) => (
+              <div key={row.range} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl text-sm mt-2">
+                <div className={`w-8 h-8 rounded-lg ${row.bg} flex items-center justify-center shrink-0`}>
+                  <span className={`${row.text} font-bold text-xs`}>{row.range}</span>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-700">{row.label}</p>
+                  <p className="text-xs text-gray-400">{row.desc}</p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium text-gray-700">Promotori (NPS 9-10)</p>
-                <p className="text-xs text-gray-400">
-                  {config.googleReviewUrl
-                    ? `→ Bottone "Recensione Google" (${config.googleReviewUrl.slice(0, 40)}...)`
-                    : '→ Nessun link Google configurato — vai nel tab Social'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 mt-2 p-3 bg-gray-50 rounded-xl text-sm">
-              <div className="w-8 h-8 rounded-lg bg-yellow-100 flex items-center justify-center shrink-0">
-                <span className="text-yellow-600 font-bold text-xs">7-8</span>
-              </div>
-              <div>
-                <p className="font-medium text-gray-700">Passivi (NPS 7-8)</p>
-                <p className="text-xs text-gray-400">→ Pagina di ringraziamento semplice</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 mt-2 p-3 bg-gray-50 rounded-xl text-sm">
-              <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
-                <span className="text-red-600 font-bold text-xs">0-6</span>
-              </div>
-              <div>
-                <p className="font-medium text-gray-700">Detrattori (NPS 0-6)</p>
-                <p className="text-xs text-gray-400">→ Messaggio "lo trasmetteremo allo staff"</p>
-              </div>
-            </div>
+            ))}
           </Card>
         </div>
       )}
@@ -527,50 +505,25 @@ export default function SettingsPage() {
       {tab === 'blacklist' && (
         <div className="space-y-6">
           <Card title="Blacklist MAC address">
-            <p className="text-sm text-gray-500 mb-4">
-              I dispositivi in lista vengono bloccati con una pagina di "Accesso negato" senza mostrare il form.
-            </p>
-
-            {/* Form aggiunta */}
+            <p className="text-sm text-gray-500 mb-4">I dispositivi in lista vengono bloccati con una pagina di "Accesso negato" senza mostrare il form.</p>
             <div className="flex gap-2 mb-6">
-              <input
-                type="text"
-                value={blMac}
-                onChange={(e) => setBlMac(e.target.value)}
-                placeholder="MAC address (es. AA:BB:CC:DD:EE:FF)"
-                className={inputCls + ' flex-1 font-mono text-sm'}
-              />
-              <input
-                type="text"
-                value={blReason}
-                onChange={(e) => setBlReason(e.target.value)}
-                placeholder="Motivazione (opzionale)"
-                className={inputCls + ' flex-1'}
-              />
+              <input type="text" value={blMac} onChange={(e) => setBlMac(e.target.value)} placeholder="MAC address (es. AA:BB:CC:DD:EE:FF)" className={inputCls + ' flex-1 font-mono text-sm'} />
+              <input type="text" value={blReason} onChange={(e) => setBlReason(e.target.value)} placeholder="Motivazione (opzionale)" className={inputCls + ' flex-1'} />
               <button
                 disabled={blAdding || !blMac.trim()}
                 onClick={async () => {
                   setBlAdding(true);
                   try {
-                    const { data } = await api.post<BlacklistEntry>(`/sites/${siteId}/blacklist`, {
-                      mac_address: blMac.trim(),
-                      reason: blReason.trim() || null,
-                    });
+                    const { data } = await api.post<BlacklistEntry>(`/sites/${siteId}/blacklist`, { mac_address: blMac.trim(), reason: blReason.trim() || null });
                     setBlacklist((prev) => [...prev, data]);
-                    setBlMac('');
-                    setBlReason('');
-                  } finally {
-                    setBlAdding(false);
-                  }
+                    setBlMac(''); setBlReason('');
+                  } finally { setBlAdding(false); }
                 }}
                 className="flex items-center gap-1.5 px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
               >
-                <Ban className="w-4 h-4" />
-                Blocca
+                <Ban className="w-4 h-4" /> Blocca
               </button>
             </div>
-
-            {/* Lista */}
             {blacklist.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-6">Nessun MAC in blacklist.</p>
             ) : (
@@ -581,13 +534,7 @@ export default function SettingsPage() {
                       <p className="text-sm font-mono font-medium text-gray-900">{e.macAddress}</p>
                       {e.reason && <p className="text-xs text-gray-400 mt-0.5">{e.reason}</p>}
                     </div>
-                    <button
-                      onClick={async () => {
-                        await api.delete(`/sites/${siteId}/blacklist/${e.id}`);
-                        setBlacklist((prev) => prev.filter((x) => x.id !== e.id));
-                      }}
-                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                    >
+                    <button onClick={async () => { await api.delete(`/sites/${siteId}/blacklist/${e.id}`); setBlacklist((prev) => prev.filter((x) => x.id !== e.id)); }} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -602,50 +549,25 @@ export default function SettingsPage() {
       {tab === 'whitelist' && (
         <div className="space-y-6">
           <Card title="Whitelist MAC address">
-            <p className="text-sm text-gray-500 mb-4">
-              I dispositivi in lista vengono autorizzati automaticamente senza mostrare il form di registrazione.
-            </p>
-
-            {/* Form aggiunta */}
+            <p className="text-sm text-gray-500 mb-4">I dispositivi in lista vengono autorizzati automaticamente senza mostrare il form di registrazione.</p>
             <div className="flex gap-2 mb-6">
-              <input
-                type="text"
-                value={wlMac}
-                onChange={(e) => setWlMac(e.target.value)}
-                placeholder="MAC address (es. AA:BB:CC:DD:EE:FF)"
-                className={inputCls + ' flex-1 font-mono text-sm'}
-              />
-              <input
-                type="text"
-                value={wlLabel}
-                onChange={(e) => setWlLabel(e.target.value)}
-                placeholder="Etichetta (opzionale)"
-                className={inputCls + ' flex-1'}
-              />
+              <input type="text" value={wlMac} onChange={(e) => setWlMac(e.target.value)} placeholder="MAC address (es. AA:BB:CC:DD:EE:FF)" className={inputCls + ' flex-1 font-mono text-sm'} />
+              <input type="text" value={wlLabel} onChange={(e) => setWlLabel(e.target.value)} placeholder="Etichetta (opzionale)" className={inputCls + ' flex-1'} />
               <button
                 disabled={wlAdding || !wlMac.trim()}
                 onClick={async () => {
                   setWlAdding(true);
                   try {
-                    const { data } = await api.post<WhitelistEntry>(`/sites/${siteId}/whitelist`, {
-                      mac_address: wlMac.trim(),
-                      label: wlLabel.trim() || null,
-                    });
+                    const { data } = await api.post<WhitelistEntry>(`/sites/${siteId}/whitelist`, { mac_address: wlMac.trim(), label: wlLabel.trim() || null });
                     setWhitelist((prev) => [...prev, data]);
-                    setWlMac('');
-                    setWlLabel('');
-                  } finally {
-                    setWlAdding(false);
-                  }
+                    setWlMac(''); setWlLabel('');
+                  } finally { setWlAdding(false); }
                 }}
                 className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
               >
-                <Plus className="w-4 h-4" />
-                Aggiungi
+                <Plus className="w-4 h-4" /> Aggiungi
               </button>
             </div>
-
-            {/* Lista */}
             {whitelist.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-6">Nessun MAC in whitelist.</p>
             ) : (
@@ -656,13 +578,7 @@ export default function SettingsPage() {
                       <p className="text-sm font-mono font-medium text-gray-900">{e.macAddress}</p>
                       {e.label && <p className="text-xs text-gray-400 mt-0.5">{e.label}</p>}
                     </div>
-                    <button
-                      onClick={async () => {
-                        await api.delete(`/sites/${siteId}/whitelist/${e.id}`);
-                        setWhitelist((prev) => prev.filter((x) => x.id !== e.id));
-                      }}
-                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                    >
+                    <button onClick={async () => { await api.delete(`/sites/${siteId}/whitelist/${e.id}`); setWhitelist((prev) => prev.filter((x) => x.id !== e.id)); }} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -676,7 +592,7 @@ export default function SettingsPage() {
   );
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const inputCls =
   'w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent';

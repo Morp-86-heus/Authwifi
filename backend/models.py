@@ -158,6 +158,7 @@ class Site(Base):
 
     survey_enabled: Mapped[bool] = mapped_column("surveyEnabled", Boolean, default=True, server_default="true")
     survey_hours_delay: Mapped[int] = mapped_column("surveyHoursDelay", Integer, default=24, server_default="24")
+    google_place_id: Mapped[str | None] = mapped_column("googlePlaceId", String, nullable=True)
 
     facebook_url: Mapped[str | None] = mapped_column("facebookUrl", String, nullable=True)
     instagram_url: Mapped[str | None] = mapped_column("instagramUrl", String, nullable=True)
@@ -317,4 +318,22 @@ class SurveyResponse(Base):
     created_at: Mapped[datetime] = mapped_column("createdAt", DateTime, server_default=func.now())
 
     guest: Mapped["Guest"] = relationship("Guest", back_populates="survey_responses")
+    site: Mapped["Site"] = relationship("Site")
+
+
+class ExternalReview(Base):
+    __tablename__ = "external_reviews"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    site_id: Mapped[str] = mapped_column("siteId", String, ForeignKey("sites.id"), nullable=False)
+    tenant_id: Mapped[str] = mapped_column("tenantId", String, ForeignKey("tenants.id"), nullable=False)
+    source: Mapped[str] = mapped_column(String, default="google", server_default="'google'")
+    external_id: Mapped[str | None] = mapped_column("externalId", String, nullable=True)
+    author_name: Mapped[str | None] = mapped_column("authorName", String, nullable=True)
+    author_photo: Mapped[str | None] = mapped_column("authorPhoto", String, nullable=True)
+    rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    text: Mapped[str | None] = mapped_column(String, nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column("publishedAt", DateTime, nullable=True)
+    fetched_at: Mapped[datetime] = mapped_column("fetchedAt", DateTime, server_default=func.now(), onupdate=func.now())
+
     site: Mapped["Site"] = relationship("Site")
