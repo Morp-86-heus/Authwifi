@@ -1,0 +1,173 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Authwifi — Prisma Schema v1
+// Multi-tenant: ogni modello ha `tenantId` per Row Level Security.
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Tenant ──────────────────────────────────────────────────────────────────
+
+model Tenant {
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  contactEmail String?
+  logoUrl      String?
+  plan         Plan      @default(TRIAL)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  sites    Site[]
+  managers Manager[]
+  guests   Guest[]
+
+  @@map("tenants")
+}
+
+enum Plan {
+  TRIAL
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+// ─── Manager (gestore struttura) ─────────────────────────────────────────────
+
+model Manager {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  email        String   @unique
+  passwordHash String
+  firstName    String?
+  lastName     String?
+  role         String   @default("owner") // owner | staff
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("managers")
+}
+
+// ─── Site (sede/struttura) ────────────────────────────────────────────────────
+
+model Site {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  name       String
+  address    String?
+  type       SiteType @default(HOTEL)
+
+  // Configurazione Omada per questo sito
+  omadaControllerUrl String?
+  omadaOmadacId      String?
+  omadaSiteId        String?   // Omada site identifier
+  omadaOperatorUser  String?
+  omadaOperatorPass  String?   // TODO: cifrare con vault in produzione
+
+  // Branding splash page
+  primaryColor      String  @default("#0055ff")
+  accentColor       String  @default("#f5f5f5")
+  welcomeTitle      String  @default("Benvenuto!")
+  welcomeText       String  @default("Connettiti al WiFi gratuito.")
+  loginMethods      String  @default("email,clickthrough")
+  logoUrl           String?  // logo struttura
+  backgroundImageUrl String? // immagine di sfondo (sostituisce accentColor)
+  heroImageUrl      String?  // banner hero sopra il titolo
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions  WifiSession[]
+
+  @@map("sites")
+}
+
+enum SiteType {
+  HOTEL
+  BNB
+  BEACH_CLUB
+  RESTAURANT
+  OTHER
+}
+
+// ─── Guest (ospite) ──────────────────────────────────────────────────────────
+
+model Guest {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+
+  macAddress String?
+  email      String?
+  firstName  String?
+  lastName   String?
+  phone      String?
+  language   String?  // es. "it", "en", "de"
+  country    String?
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  sessions  WifiSession[]
+  consents  Consent[]
+
+  @@unique([tenantId, macAddress])
+  @@unique([tenantId, email])
+  @@map("guests")
+}
+
+// ─── WifiSession (sessione di connessione) ───────────────────────────────────
+
+model WifiSession {
+  id       String  @id @default(cuid())
+  guestId  String
+  guest    Guest   @relation(fields: [guestId], references: [id])
+  siteId   String
+  site     Site    @relation(fields: [siteId], references: [id])
+
+  macAddress String
+  apMac      String?
+  ssidName   String?
+  startedAt  DateTime  @default(now())
+  endedAt    DateTime?
+
+  // Dati restituiti da Omada dopo l'autorizzazione
+  omadaSessionId String?
+
+  @@map("wifi_sessions")
+}
+
+// ─── Consent (GDPR) ──────────────────────────────────────────────────────────
+
+model Consent {
+  id         String   @id @default(cuid())
+  guestId    String
+  guest      Guest    @relation(fields: [guestId], references: [id])
+
+  type       ConsentType
+  granted    Boolean
+  ipAddress  String?
+  userAgent  String?
+  policyVersion String   // es. "1.0"
+  createdAt  DateTime @default(now())
+
+  @@map("consents")
+}
+
+enum ConsentType {
+  TERMS_OF_SERVICE   // click-through obbligatorio
+  MARKETING_EMAIL    // email promozionali
+  MARKETING_SMS      // SMS/WhatsApp
+  PROFILING          // profilazione comportamentale
+  THIRD_PARTY        // condivisione con terze parti
+}

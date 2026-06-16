@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose *)",
+      "PowerShell(docker compose *)",
+      "PowerShell(docker context ls *)",
+      "PowerShell(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 docker@192.168.27.222 \"docker compose -f /path/to/authwifi/docker-compose.yml ps 2>/dev/null || docker ps --format 'table {{.Names}}\\\\t{{.Status}}\\\\t{{.Ports}}'\" 2>&1)",
+      "PowerShell($start = Get-Date; do { Start-Sleep -Seconds 3; $content = Get-Content \"C:\\\\Users\\\\Germano\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\W--Authwifi\\\\515d9c52-b456-4810-87c0-0562442bd7e5\\\\tasks\\\\bi0k2o3z0.output\" -ErrorAction SilentlyContinue; $elapsed = \\(\\(Get-Date\\) - $start\\).TotalSeconds } while \\($content.Count -lt 3 -and $elapsed -lt 30\\); $content)",
+      "PowerShell(ssh -o StrictHostKeyChecking=no docker@192.168.27.222 \"docker ps --format 'table {{.Names}}\\\\t{{.Status}}\\\\t{{.Ports}}'\" 2>&1)",
+      "Bash(Get-ChildItem -Path \"W:\\\\Authwifi\" -Recurse -Force)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(ConvertTo-Json)",
+      "Bash(find . -type d -not -path '*/\\\\.*')",
+      "Bash(awk '{print $9, $5}')",
+      "Bash(xargs wc -l)",
+      "PowerShell(Get-ChildItem W:\\\\ -Directory | ForEach-Object { $size = \\(Get-ChildItem $_.FullName -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum\\).Sum; [PSCustomObject]@{Name=$_.Name; SizeGB=[math]::Round\\($size/1GB,2\\)} } | Sort-Object SizeGB -Descending | Select-Object -First 15 | Format-Table -AutoSize)",
+      "PowerShell(Get-PSDrive W | Select-Object Used, Free, @{N='UsedGB';E={[math]::Round\\($_.Used/1GB,2\\)}}, @{N='FreeGB';E={[math]::Round\\($_.Free/1GB,2\\)}})",
+      "PowerShell(Get-ChildItem W:\\\\Authwifi -Recurse -Force -ErrorAction SilentlyContinue | Where-Object { -not $_.PSIsContainer } | Sort-Object Length -Descending | Select-Object -First 20 | Select-Object FullName, @{N='SizeMB';E={[math]::Round\\($_.Length/1MB,2\\)}})",
+      "PowerShell(Get-PSDrive W | Select-Object @{N='UsedGB';E={[math]::Round\\($_.Used/1GB,2\\)}}, @{N='FreeGB';E={[math]::Round\\($_.Free/1GB,2\\)}})",
+      "Read(//usr/**)",
+      "Read(//usr/local/**)",
+      "Bash(command -v docker)",
+      "Read(//c/Program Files/Docker/Docker/resources/bin/**)",
+      "Read(//c/Program Files/**)",
+      "Read(//c/Users/Germano/AppData/Local/**)",
+      "Read(//c/ProgramData/**)",
+      "Read(//c//**)",
+      "PowerShell(Get-ChildItem \"Z:\\\\Authwifi\\\\apps\\\\dashboard\\\\src\" -Recurse | Where-Object { -not $_.PSIsContainer } | Select-Object FullName)",
+      "PowerShell(Get-ChildItem \"Z:\\\\Authwifi\\\\apps\\\\api\\\\src\" -Recurse | Where-Object { -not $_.PSIsContainer } | Select-Object FullName)",
+      "Bash(sshpass *)",
+      "Bash(ssh -V)",
+      "Bash(python3 *)",
+      "Bash(pip install *)",
+      "Bash(ssh-keygen -t ed25519 -f /tmp/authwifi_key -N \"\" -q)"
+    ]
+  }
+}
