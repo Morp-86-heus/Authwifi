@@ -389,7 +389,7 @@ def welcome(siteId: str = Query(default=""), db: Session = Depends(get_db)):
 
     primary = site.primary_color if site else "#0055ff"
     logo = (
-        f'<img src="{esc(site.logo_url)}" alt="logo" style="max-height:60px;max-width:180px;object-fit:contain;margin-bottom:20px"/>'
+        f'<img src="{esc(site.logo_url)}" alt="logo" style="max-height:120px;max-width:320px;object-fit:contain;margin-bottom:20px;display:block;margin-left:auto;margin-right:auto"/>'
         if site and site.logo_url else ""
     )
 

@@ -101,7 +101,7 @@ def render_splash(d: dict) -> str:
     .card-body{{padding:32px 32px 36px}}
     .hero-img{{width:100%;height:160px;object-fit:cover;display:block}}
     .logo-wrap{{text-align:center;margin-bottom:20px}}
-    .logo-wrap img{{max-height:64px;max-width:180px;object-fit:contain}}
+    .logo-wrap img{{max-height:120px;max-width:320px;object-fit:contain}}
     .welcome-title{{font-size:1.4rem;font-weight:700;color:#111;text-align:center;margin-bottom:6px}}
     .welcome-text{{font-size:.92rem;color:#555;text-align:center;margin-bottom:24px;line-height:1.5}}
     .returning-box{{text-align:center;margin-bottom:24px}}
@@ -277,7 +277,7 @@ def render_splash(d: dict) -> str:
     .card-body{{padding:32px 32px 36px}}
     .hero-img{{width:100%;height:160px;object-fit:cover;display:block}}
     .logo-wrap{{text-align:center;margin-bottom:20px}}
-    .logo-wrap img{{max-height:64px;max-width:180px;object-fit:contain}}
+    .logo-wrap img{{max-height:120px;max-width:320px;object-fit:contain}}
     .welcome-title{{font-size:1.4rem;font-weight:700;color:#111;text-align:center;margin-bottom:6px}}
     .welcome-text{{font-size:.92rem;color:#555;text-align:center;margin-bottom:24px;line-height:1.5}}
     .field{{margin-bottom:12px}}
