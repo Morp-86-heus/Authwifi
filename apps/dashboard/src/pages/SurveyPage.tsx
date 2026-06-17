@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { MessageSquareDot, Star, TrendingUp, TrendingDown, Minus, RefreshCw } from 'lucide-react';
+import { MessageSquareDot, Star, TrendingUp, TrendingDown, Minus, RefreshCw, Code, Copy, Check, ExternalLink } from 'lucide-react';
 import api from '../api/client';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -94,6 +94,8 @@ export default function SurveyPage() {
   const [reviewLoading, setReviewLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [widgetTheme, setWidgetTheme] = useState<'light' | 'dark'>('light');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     api.get<Site[]>('/sites').then(({ data }) => {
@@ -142,6 +144,21 @@ export default function SurveyPage() {
     } finally {
       setSyncing(false);
     }
+  };
+
+  const widgetUrl = selectedSite
+    ? `${window.location.origin}/api/public/widget/${selectedSite}?theme=${widgetTheme}`
+    : null;
+  const embedCode = widgetUrl
+    ? `<iframe src="${widgetUrl}" width="100%" height="520" frameborder="0" style="border-radius:12px;border:none;display:block"></iframe>`
+    : null;
+
+  const handleCopy = () => {
+    if (!embedCode) return;
+    navigator.clipboard.writeText(embedCode).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
 
   const formatDate = (iso: string | null) =>
@@ -306,6 +323,55 @@ export default function SurveyPage() {
               Aggiungila nel file <code className="bg-amber-100 px-1 rounded">.env</code> del server per attivare la sincronizzazione recensioni.
             </div>
           )}
+
+          {/* Widget embed */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Code className="w-4 h-4 text-brand-500" />
+              <h2 className="font-semibold text-gray-900">Widget embeddabile</h2>
+            </div>
+            {!selectedSite ? (
+              <p className="text-sm text-gray-400">Seleziona un sito per ottenere il codice embed.</p>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">Tema:</span>
+                  {(['light', 'dark'] as const).map((th) => (
+                    <button
+                      key={th}
+                      onClick={() => setWidgetTheme(th)}
+                      className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${widgetTheme === th ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                    >
+                      {th === 'light' ? 'Chiaro' : 'Scuro'}
+                    </button>
+                  ))}
+                  <a
+                    href={widgetUrl!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-auto flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium"
+                  >
+                    <ExternalLink className="w-3 h-3" /> Anteprima
+                  </a>
+                </div>
+                <div className="relative">
+                  <textarea
+                    readOnly
+                    value={embedCode!}
+                    rows={3}
+                    className="w-full px-3.5 py-3 pr-20 text-xs font-mono bg-gray-50 border border-gray-200 rounded-xl resize-none focus:outline-none text-gray-700"
+                  />
+                  <button
+                    onClick={handleCopy}
+                    className="absolute right-3 top-3 flex items-center gap-1 px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors shadow-sm"
+                  >
+                    {copied ? <><Check className="w-3 h-3 text-green-500" /> Copiato</> : <><Copy className="w-3 h-3" /> Copia</>}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400">Incolla questo codice nell'HTML del tuo sito dove vuoi mostrare le recensioni.</p>
+              </div>
+            )}
+          </div>
 
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100">
