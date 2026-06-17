@@ -605,7 +605,7 @@ openssl rand -hex 32
 - Supporto gateway aggiuntivi (UniFi, MikroTik, Cambium) tramite adapter pattern
 - Integrazione PMS (Opera, Scrigno, Slope) per dati check-in/check-out
 - AI: risposta automatica alle recensioni, insight sui feedback
-- Seamless re-login per MAC noti (ospiti di ritorno senza form)
+- ~~Seamless re-login per MAC noti (ospiti di ritorno senza form)~~ — **scelta di prodotto:** il form viene pre-compilato con i dati dell'ospite, basta premere il tasto di login. Compromesso intenzionale tra UX e controllo.
 - **Redis cache per splash page** (elimina 7 query DB per ogni caricamento) — **prossimo step**
 - Migrazione SQLAlchemy async (AsyncSession + asyncpg) per eliminare blocking I/O su handler async
 
