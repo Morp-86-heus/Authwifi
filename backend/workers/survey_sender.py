@@ -1,8 +1,8 @@
 """
 Survey sender — consumer RabbitMQ.
 Per ogni messaggio: genera token, crea SurveyResponse pendente nel DB,
-invia l'email. In caso di errore email il messaggio viene nackato e
-reinserito in coda (max 3 retry, poi dead-letter).
+invia l'email usando la config SMTP del sito (fallback globale se non configurata).
+In caso di errore email il messaggio viene nackato e reinserito in coda.
 """
 import json
 import logging
@@ -11,12 +11,11 @@ import sys
 
 sys.path.insert(0, "/app")
 
-import pika
 from jose import jwt
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from models import SurveyResponse, new_id
+from models import Site, SurveyResponse, new_id
 from services.email import send_survey_email
 from services.rabbitmq import consume_survey
 
@@ -41,6 +40,27 @@ def _make_survey_token(guest_id: str, site_id: str, tenant_id: str) -> str:
     )
 
 
+def _smtp_config_from_site(site: Site) -> dict | None:
+    if not site or not site.smtp_host:
+        return None
+    return {
+        "host":       site.smtp_host,
+        "port":       site.smtp_port,
+        "security":   site.smtp_security,
+        "username":   site.smtp_username,
+        "password":   site.smtp_password,
+        "from_email": site.smtp_from_email,
+        "from_name":  site.smtp_from_name,
+    }
+
+
+def _branding_from_site(site: Site) -> dict:
+    return {
+        "logo_url":      site.logo_url,
+        "primary_color": site.primary_color or "#0055ff",
+    }
+
+
 def handle_message(ch, method, _props, body):
     try:
         msg = json.loads(body)
@@ -49,10 +69,10 @@ def handle_message(ch, method, _props, body):
         ch.basic_ack(delivery_tag=method.delivery_tag)
         return
 
-    guest_id  = msg.get("guest_id")
-    site_id   = msg.get("site_id")
-    tenant_id = msg.get("tenant_id")
-    email     = msg.get("email")
+    guest_id   = msg.get("guest_id")
+    site_id    = msg.get("site_id")
+    tenant_id  = msg.get("tenant_id")
+    email      = msg.get("email")
     first_name = msg.get("first_name", "")
     site_name  = msg.get("site_name", "")
 
@@ -61,6 +81,7 @@ def handle_message(ch, method, _props, body):
     token = _make_survey_token(guest_id, site_id, tenant_id)
     survey_url = f"{BASE_URL}/survey/{token}"
 
+    smtp_config = None
     with Session(engine) as db:
         existing = db.query(SurveyResponse).filter(
             SurveyResponse.guest_id == guest_id,
@@ -70,6 +91,10 @@ def handle_message(ch, method, _props, body):
             logger.info("Survey già creata per guest %s — skip.", guest_id)
             ch.basic_ack(delivery_tag=method.delivery_tag)
             return
+
+        site = db.query(Site).filter(Site.id == site_id).first()
+        smtp_config = _smtp_config_from_site(site)
+        site_branding = _branding_from_site(site) if site else {}
 
         sr = SurveyResponse(
             id=new_id(),
@@ -81,7 +106,7 @@ def handle_message(ch, method, _props, body):
         db.add(sr)
         db.commit()
 
-    ok = send_survey_email(email, first_name, survey_url, site_name)
+    ok = send_survey_email(email, first_name, survey_url, site_name, smtp_config, site_branding)
     if ok:
         logger.info("Email inviata a %s", email)
         ch.basic_ack(delivery_tag=method.delivery_tag)

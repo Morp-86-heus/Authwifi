@@ -29,7 +29,7 @@ Piattaforma SaaS multi-tenant che trasforma il WiFi ospiti delle strutture ricet
                                   │
                   PostgreSQL · Redis · Message Queue
                                   │
-              Email (SendGrid) · SMS/WA (Twilio) · Push
+              Email (SMTP per-sito) · SMS/WA (Twilio) · Push
 ```
 
 ### 2.1 Integrazione Omada — External Portal Server
@@ -48,6 +48,8 @@ Omada supporta il **portale esterno**: il controller reindirizza il client non a
 ### 2.2 Stack tecnologico (stack reale in produzione)
 
 > **Nota:** Il piano originale prevedeva NestJS + Prisma. Durante lo sviluppo lo stack backend è stato migrato a FastAPI + SQLAlchemy per maggiore controllo sulle query, gestione asincrona nativa e migrazioni idempotenti.
+>
+> **Nota 2:** L'invio email è stato migrato da SendGrid a SMTP standard (`smtplib` Python) configurabile per-sito dalla dashboard — nessuna dipendenza da servizi esterni.
 
 | Componente | Tecnologia | Note |
 |---|---|---|
@@ -61,8 +63,10 @@ Omada supporta il **portale esterno**: il controller reindirizza il client non a
 | Cache | **Redis 7** | Connesso ma non ancora utilizzato (todo) |
 | Message queue | **RabbitMQ 3.13** | Connesso, pronto per campagne asincrone |
 | HTTP client Omada | **httpx** (AsyncClient condiviso) | Timeout 15s, connessioni riutilizzate |
+| Invio email | **smtplib** (Python stdlib) | SMTP per-sito configurabile in dashboard, fallback globale da env |
 | Auth gestori | **JWT** (python-jose) + bcrypt | Token 8h, ruoli: superadmin/owner/manager/staff |
 | Infra | **Docker Compose** | Backend :8000, Frontend :3000, Postgres :9999 |
+| Reverse proxy | **nginx** (in container frontend) | DNS resolver Docker 127.0.0.11, variable-based proxy_pass (anti-502) |
 | VCS | **Git** → GitHub `Morp-86-heus/Authwifi` | Branch `master` |
 
 ### 2.3 Data layer
@@ -80,6 +84,7 @@ Authwifi/
 │   ├── models.py                       # SQLAlchemy: Tenant, Manager, Site, Guest,
 │   │                                   #   WifiSession, Consent, Segment, SubSegment,
 │   │                                   #   MacBlacklist, MacWhitelist, ManagerSite
+│   │                                   #   Site include campi SMTP per-sito (7 col) + survey customization (7 col)
 │   ├── auth.py                         # JWT, bcrypt, get_current_manager, require_roles
 │   ├── database.py                     # Engine con pool_size=20, max_overflow=40
 │   ├── alembic/
@@ -88,7 +93,10 @@ Authwifi/
 │   │       ├── 002_segments.py         # Tabelle segments, sub_segments + FK su guests
 │   │       ├── 003_indexes.py          # 16 indici performance su tutte le FK columns
 │   │       ├── 004_survey.py           # survey_responses, surveyEmailSentAt, surveyEnabled, surveyHoursDelay
-│   │       └── 005_reviews.py          # external_reviews, googlePlaceId su sites
+│   │       ├── 005_reviews.py          # external_reviews, googlePlaceId su sites
+│   │       ├── 006_smtp.py             # 7 colonne SMTP per-sito su sites
+│   │       ├── 007_smtp_security.py    # sostituisce smtpUseTls (bool) con smtpSecurity (varchar: none/starttls/ssl)
+│   │       └── 008_survey_custom.py    # 7 colonne personalizzazione survey su sites
 │   ├── routers/
 │   │   ├── auth.py                     # POST /auth/login
 │   │   ├── tenants.py                  # CRUD tenant
@@ -109,7 +117,7 @@ Authwifi/
 │   └── services/
 │       ├── splash.py                   # render_splash(): HTML server-rendered
 │       ├── omada.py                    # OmadaClient: get_session + authorize_client
-│       ├── email.py                    # send_survey_email() via SendGrid (mock se no key)
+│       ├── email.py                    # send_survey_email() via smtplib; none/starttls/ssl; logo sito in header
 │       ├── google_places.py            # fetch_google_reviews() via Places API
 │       └── rabbitmq.py                 # publish_survey() + consume_survey()
 ├── apps/
@@ -122,7 +130,7 @@ Authwifi/
 │           │   ├── GuestsPage.tsx
 │           │   ├── ManagersPage.tsx
 │           │   ├── SegmentsPage.tsx    # Gestione segmenti/sotto-segmenti
-│           │   ├── SettingsPage.tsx    # Tab: Branding, Omada, Login, Whitelist, Blacklist, Social, Survey
+│           │   ├── SettingsPage.tsx    # Tab: Branding, Omada, Login, Whitelist, Blacklist, Social, Survey (+ personalizzazione + anteprima live), Email/SMTP
 │           │   ├── SurveyPage.tsx      # Tab: NPS & Feedback, Recensioni Google
 │           │   └── SuperAdminPage.tsx
 │           ├── components/
@@ -159,10 +167,17 @@ OMADA_OPERATOR_PASSWORD="..."
 
 # Fase 2 — Survey e Recensioni
 RABBITMQ_URL="amqp://authwifi:authwifi@rabbitmq:5672/"
+
+# SMTP globale di fallback (usato se il sito non ha SMTP configurato in dashboard)
+SMTP_HOST=""                             # es. smtp.gmail.com
+SMTP_PORT="587"
+SMTP_SECURITY="starttls"               # none | starttls | ssl
+SMTP_USERNAME=""
+SMTP_PASSWORD=""
+SMTP_FROM_EMAIL="noreply@authwifi.it"
+SMTP_FROM_NAME="Authwifi"
 BASE_URL="https://tuodominio.it"          # usato per generare l'URL della survey nell'email
-SENDGRID_API_KEY="SG...."                # se assente, le email sono loggate come mock
-SENDGRID_FROM_EMAIL="noreply@tuodominio.it"
-SENDGRID_FROM_NAME="Nome Struttura"
+# SENDGRID_* rimosso — sostituito da SMTP per-sito (dashboard) o SMTP globale sopra
 GOOGLE_PLACES_API_KEY="AIza..."          # opzionale — per sync recensioni Google
 SCHEDULER_INTERVAL_SECONDS=3600          # ogni quante secondi il scheduler cerca nuovi invii
 ```
@@ -307,7 +322,7 @@ openssl rand -hex 32
 - [x] `POST /survey/send-test` — invia email di test al manager loggato
 - [x] `GET /reviews` — lista recensioni esterne con avgRating e lastSync
 - [x] `POST /reviews/sync` — sync da Google Places API con upsert su `externalId`
-- [x] `services/email.py` — `send_survey_email()` via SendGrid, fallback mock su log se no API key
+- [x] `services/email.py` — `send_survey_email()` via smtplib; fallback mock su log se SMTP non configurato
 - [x] `services/google_places.py` — `fetch_google_reviews()` via Places Details API, external_id = sha256(author:ts)[:24]
 - [x] `services/rabbitmq.py` — `publish_survey()` / `consume_survey()` con pika
 - [x] `workers/survey_scheduler.py` — ogni N ore, LATERAL JOIN per trovare ospiti eleggibili, pubblica su RabbitMQ
@@ -324,7 +339,76 @@ openssl rand -hex 32
 
 - [x] Bug: `current["id"]` → `current["manager_id"]` in `POST /survey/send-test` (KeyError 500)
 
-**Deliverable:** ciclo completo soggiorno → survey NPS → email → form → recensione Google (se NPS≥9). ✅
+---
+
+### Fase 2.1 — SMTP per-sito (nessuna dipendenza esterna) ✅ COMPLETATA
+
+> Migrazione da SendGrid a SMTP standard per rendere la piattaforma white-label completa.
+
+- [x] Alembic migration 006: 7 colonne SMTP su `sites` (`smtpHost`, `smtpPort`, `smtpUseTls`, `smtpUsername`, `smtpPassword`, `smtpFromEmail`, `smtpFromName`)
+- [x] Alembic migration 007: sostituisce `smtpUseTls` (bool) con `smtpSecurity` (varchar: `none`/`starttls`/`ssl`) — supporto diretto SSL/TLS oltre STARTTLS
+- [x] `services/email.py` — rimosso SendGrid, sostituito con `smtplib` Python stdlib; `SMTP_SSL` per ssl, `SMTP`+`starttls()` per starttls, `SMTP` plain per none; header email con logo sito
+- [x] `workers/survey_sender.py` — carica config SMTP + branding del sito dal DB, passa entrambi a `send_survey_email()`
+- [x] `routers/sites.py` — campi SMTP (incl. `smtpSecurity`) in `SiteOut` e `UpdateSiteDto`
+- [x] `routers/survey.py` — `POST /survey/send-test` legge config SMTP e branding del sito
+- [x] `SettingsPage.tsx` — nuovo tab "Email / SMTP": host, porta, security select (none/starttls/ssl), username, password, from email/name, test invio, tabella provider comuni (Gmail, Outlook, Aruba, Register.it, Libero)
+
+**Flusso:** sito senza SMTP → usa SMTP globale da `.env` → se anche quello vuoto → mock su log (zero crash, zero dipendenze forzate).
+
+**Deliverable:** piattaforma completamente autonoma da servizi email esterni; ogni struttura usa il proprio server SMTP. ✅
+
+---
+
+### Fase 2.2 — Personalizzazione survey + anteprima live ✅ COMPLETATA
+
+> Resa la survey completamente white-label: tutti i testi configurabili, logo del sito, anteprima interattiva.
+
+#### Backend
+
+- [x] Alembic migration 008: 7 colonne personalizzazione su `sites`:
+  `surveyTitle`, `surveySubtitle`, `surveyQuestionLabel`, `surveyCommentLabel`,
+  `surveyButtonText`, `surveyThankYouTitle`, `surveyShowComment`
+- [x] `models.py` — 7 nuovi `Mapped` fields su `Site`
+- [x] `routers/sites.py` — campi survey customization in `SiteOut` e `UpdateSiteDto`
+- [x] `routers/survey.py` — `_survey_page()` usa tutti i 7 campi custom con fallback ai default; placeholder `{nome_sito}` supportato in ogni testo; `_thank_you_page()` usa `surveyThankYouTitle`
+- [x] `workers/survey_sender.py` — passa `site_branding` (logo_url + primary_color) all'email; header email mostra logo sito su sfondo bianco se disponibile
+
+#### Dashboard
+
+- [x] `SettingsPage.tsx` — card "Personalizzazione survey" nel tab Survey:
+  - 6 input testo (titolo, sottotitolo, etichetta domanda, etichetta commento, testo bottone, titolo ringraziamento)
+  - toggle "Mostra campo commento"
+  - placeholder `{nome_sito}` documentato nell'UI
+- [x] `SettingsPage.tsx` — card "Anteprima survey": componente React `SurveyPreview` interattivo
+  - mostra logo sito (sfondo bianco) o nome su sfondo `primaryColor`
+  - 11 pulsanti NPS cliccabili con colore dinamico
+  - campo commento condizionale
+  - schermata ringraziamento al click su uno score
+  - si aggiorna in tempo reale mentre si modificano i campi sopra
+
+**Deliverable:** survey completamente brandizzata per ogni struttura, preview live in dashboard senza deploy. ✅
+
+---
+
+### Fix infrastrutturali ✅ APPLICATI
+
+#### nginx — DNS caching 502 dopo rebuild backend
+
+> **Problema:** nginx risolve `backend:8000` una sola volta all'avvio; dopo un `docker compose build && up` il container backend ottiene un nuovo IP Docker → nginx continua a puntare al vecchio IP → 502 Connection refused.
+>
+> **Fix:** `apps/dashboard/nginx.conf` aggiornato con:
+> ```nginx
+> resolver 127.0.0.11 valid=10s ipv6=off;   # DNS interno Docker
+> set $backend "backend:8000";              # variabile forza re-risoluzione per ogni request
+> location /api/ {
+>     rewrite ^/api/(.*)$ /$1 break;
+>     proxy_pass http://$backend;
+> }
+> ```
+> Il pattern `rewrite` + `proxy_pass http://$backend` è necessario: con una variabile nginx non fa lo strip del location prefix automatico, quindi serve il rewrite esplicito.
+
+- [x] `apps/dashboard/nginx.conf` — resolver Docker + variabile `$backend` per risoluzione DNS dinamica
+- [x] Testato: rebuild backend → frontend risponde immediatamente senza restart nginx
 
 ---
 

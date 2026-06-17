@@ -1,4 +1,5 @@
 import logging
+import os
 from datetime import datetime
 from typing import Optional
 
@@ -8,11 +9,10 @@ from jose import JWTError, jwt
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
-from auth import SECRET_KEY, get_current_manager, require_roles
+from auth import SECRET_KEY, get_current_manager
 from fastapi import HTTPException
-from models import Manager
 from database import get_db
-from models import Guest, Site, SurveyResponse
+from models import Guest, Manager, Site, SurveyResponse
 
 router = APIRouter(prefix="/survey", tags=["survey"])
 logger = logging.getLogger(__name__)
@@ -24,6 +24,12 @@ def _esc(s: str) -> str:
     return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 
+def _t(val: str | None, default: str, site_name: str = "") -> str:
+    """Restituisce val se valorizzato, altrimenti default. Sostituisce {nome_sito}."""
+    text = val if val else default
+    return text.replace("{nome_sito}", site_name)
+
+
 def _decode_token(token: str) -> dict:
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     if payload.get("type") != "survey":
@@ -32,13 +38,24 @@ def _decode_token(token: str) -> dict:
 
 
 def _survey_page(site: Site, token: str, error: str = "") -> str:
-    primary = _esc(site.primary_color or "#0055ff")
+    primary   = _esc(site.primary_color or "#0055ff")
     site_name = _esc(site.name)
-    logo_tag = (
+    logo_tag  = (
         f'<img src="{_esc(site.logo_url)}" alt="logo" style="max-height:56px;max-width:160px;object-fit:contain;margin-bottom:20px"/>'
         if site.logo_url else ""
     )
     error_block = f'<p style="color:#ef4444;font-size:.85rem;margin-bottom:16px">{_esc(error)}</p>' if error else ""
+
+    title    = _esc(_t(site.survey_title,         "Come è stata la tua esperienza?",                             site.name))
+    subtitle = _esc(_t(site.survey_subtitle,       "La tua opinione su {nome_sito} ci aiuta a migliorare il servizio.", site.name))
+    q_label  = _esc(_t(site.survey_question_label, "Da 0 a 10, quanto ci consiglieresti a un amico?",            site.name))
+    c_label  = _esc(_t(site.survey_comment_label,  "Vuoi aggiungere qualcosa?",                                   site.name))
+    btn_text = _esc(_t(site.survey_button_text,    "Invia valutazione",                                           site.name))
+    show_comment = site.survey_show_comment if site.survey_show_comment is not None else True
+
+    comment_block = f"""
+    <p class="label" style="margin-top:4px">{c_label} <span style="font-weight:400;color:#aaa">(opzionale)</span></p>
+    <textarea name="comment" placeholder="Scrivi qui la tua opinione..."></textarea>""" if show_comment else ""
 
     scores = "".join(
         f'<label style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer">'
@@ -55,7 +72,7 @@ def _survey_page(site: Site, token: str, error: str = "") -> str:
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>La tua opinione — {site_name}</title>
+  <title>{title} — {site_name}</title>
   <style>
     *{{box-sizing:border-box;margin:0;padding:0}}
     body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;
@@ -82,18 +99,15 @@ def _survey_page(site: Site, token: str, error: str = "") -> str:
 <body>
 <div class="card">
   {logo_tag}
-  <h1>Come è stata la tua esperienza?</h1>
-  <p class="sub">La tua opinione su <strong>{site_name}</strong> ci aiuta a migliorare il servizio.</p>
+  <h1>{title}</h1>
+  <p class="sub">{subtitle}</p>
   {error_block}
   <form method="post" action="/survey/{_esc(token)}">
-    <p class="label">Da 0 a 10, quanto ci consiglieresti a un amico?</p>
+    <p class="label">{q_label}</p>
     <div class="scores">{scores}</div>
     <div class="hint"><span>Per niente</span><span>Assolutamente</span></div>
-
-    <p class="label" style="margin-top:4px">Vuoi aggiungere qualcosa? <span style="font-weight:400;color:#aaa">(opzionale)</span></p>
-    <textarea name="comment" placeholder="Scrivi qui la tua opinione..."></textarea>
-
-    <button type="submit" class="btn">Invia valutazione</button>
+    {comment_block}
+    <button type="submit" class="btn">{btn_text}</button>
   </form>
   <p class="powered">Powered by Authwifi</p>
 </div>
@@ -111,12 +125,13 @@ def _survey_page(site: Site, token: str, error: str = "") -> str:
 
 
 def _thank_you_page(site: Site, nps: int) -> str:
-    primary = _esc(site.primary_color or "#0055ff")
+    primary   = _esc(site.primary_color or "#0055ff")
     site_name = _esc(site.name)
-    logo_tag = (
+    logo_tag  = (
         f'<img src="{_esc(site.logo_url)}" alt="logo" style="max-height:56px;max-width:160px;object-fit:contain;margin-bottom:20px"/>'
         if site.logo_url else ""
     )
+    ty_title = _esc(_t(site.survey_thank_you_title, "Grazie mille!", site.name))
 
     if nps >= 9 and site.google_review_url:
         cta = f"""
@@ -139,7 +154,7 @@ def _thank_you_page(site: Site, nps: int) -> str:
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Grazie — {site_name}</title>
+  <title>{ty_title} — {site_name}</title>
   <style>
     *{{box-sizing:border-box;margin:0;padding:0}}
     body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;
@@ -161,7 +176,7 @@ def _thank_you_page(site: Site, nps: int) -> str:
       <polyline points="20 6 9 17 4 12"/>
     </svg>
   </div>
-  <h1>Grazie mille!</h1>
+  <h1>{ty_title}</h1>
   {cta}
   <p class="powered">Powered by Authwifi</p>
 </div>
@@ -175,8 +190,6 @@ def send_test_email(
     db: Session = Depends(get_db),
     current: dict = Depends(get_current_manager),
 ):
-    import os
-    from models import Manager
     from services.email import send_survey_email
 
     manager = db.query(Manager).filter(Manager.id == current["manager_id"]).first()
@@ -184,13 +197,30 @@ def send_test_email(
         raise HTTPException(status_code=400, detail="Email manager non trovata")
 
     site_name = "Authwifi"
+    smtp_config = None
+    site_branding = {}
+
     if site_id:
-        site = db.query(Site).filter(
+        site_obj = db.query(Site).filter(
             Site.id == site_id,
             Site.tenant_id == current["tenant_id"],
         ).first()
-        if site:
-            site_name = site.name
+        if site_obj:
+            site_name = site_obj.name
+            site_branding = {
+                "logo_url":      site_obj.logo_url,
+                "primary_color": site_obj.primary_color or "#0055ff",
+            }
+            if site_obj.smtp_host:
+                smtp_config = {
+                    "host":       site_obj.smtp_host,
+                    "port":       site_obj.smtp_port,
+                    "security":   site_obj.smtp_security,
+                    "username":   site_obj.smtp_username,
+                    "password":   site_obj.smtp_password,
+                    "from_email": site_obj.smtp_from_email,
+                    "from_name":  site_obj.smtp_from_name,
+                }
 
     token = jwt.encode(
         {"type": "survey", "guest_id": "test", "site_id": site_id or "test", "tenant_id": current["tenant_id"]},
@@ -198,10 +228,10 @@ def send_test_email(
     )
     survey_url = f"{os.getenv('BASE_URL', 'http://localhost:8000')}/survey/{token}"
 
-    ok = send_survey_email(manager.email, manager.first_name or "Manager", survey_url, site_name)
+    ok = send_survey_email(manager.email, manager.first_name or "Manager", survey_url, site_name, smtp_config, site_branding)
     if ok:
         return {"success": True, "sentTo": manager.email}
-    raise HTTPException(status_code=500, detail="Errore invio. Verifica SENDGRID_API_KEY nei log del server.")
+    raise HTTPException(status_code=500, detail="Errore invio. Verifica la configurazione SMTP nei log del server.")
 
 
 @router.get("/responses")
@@ -228,7 +258,6 @@ def list_responses(
 
     total = q.count()
 
-    # Aggregate stats
     stats_q = db.query(
         func.avg(SurveyResponse.nps_score).label("avg"),
         func.count(SurveyResponse.id).label("total"),

@@ -53,6 +53,20 @@ class SiteOut(BaseModel):
     survey_enabled: bool = True
     survey_hours_delay: int = 24
     google_place_id: Optional[str] = None
+    survey_title: Optional[str] = None
+    survey_subtitle: Optional[str] = None
+    survey_question_label: Optional[str] = None
+    survey_comment_label: Optional[str] = None
+    survey_button_text: Optional[str] = None
+    survey_thank_you_title: Optional[str] = None
+    survey_show_comment: bool = True
+    smtp_host: Optional[str] = None
+    smtp_port: int = 587
+    smtp_security: str = "starttls"
+    smtp_username: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_from_email: Optional[str] = None
+    smtp_from_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -104,6 +118,20 @@ class UpdateSiteDto(BaseModel):
     survey_enabled: Optional[bool] = None
     survey_hours_delay: Optional[int] = None
     google_place_id: Optional[str] = None
+    survey_title: Optional[str] = None
+    survey_subtitle: Optional[str] = None
+    survey_question_label: Optional[str] = None
+    survey_comment_label: Optional[str] = None
+    survey_button_text: Optional[str] = None
+    survey_thank_you_title: Optional[str] = None
+    survey_show_comment: Optional[bool] = None
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_security: Optional[str] = None
+    smtp_username: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_from_email: Optional[str] = None
+    smtp_from_name: Optional[str] = None
 
 
 @router.post("", status_code=201)

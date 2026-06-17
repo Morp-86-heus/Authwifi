@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Save, Wifi, Palette, Settings2, ShieldCheck, Ban, Plus, Trash2, Globe, MessageSquareDot } from 'lucide-react';
+import { Save, Wifi, Palette, Settings2, ShieldCheck, Ban, Plus, Trash2, Globe, MessageSquareDot, Mail } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../api/client';
 import ImageUploader from '../components/ImageUploader';
@@ -30,9 +30,23 @@ interface SiteConfig {
   surveyEnabled: boolean;
   surveyHoursDelay: number;
   googlePlaceId: string | null;
+  surveyTitle: string | null;
+  surveySubtitle: string | null;
+  surveyQuestionLabel: string | null;
+  surveyCommentLabel: string | null;
+  surveyButtonText: string | null;
+  surveyThankYouTitle: string | null;
+  surveyShowComment: boolean;
+  smtpHost: string | null;
+  smtpPort: number;
+  smtpSecurity: string;
+  smtpUsername: string | null;
+  smtpPassword: string | null;
+  smtpFromEmail: string | null;
+  smtpFromName: string | null;
 }
 
-type Tab = 'branding' | 'omada' | 'login' | 'whitelist' | 'blacklist' | 'social' | 'survey';
+type Tab = 'branding' | 'omada' | 'login' | 'whitelist' | 'blacklist' | 'social' | 'survey' | 'smtp';
 
 interface BlacklistEntry {
   id: string;
@@ -128,6 +142,7 @@ export default function SettingsPage() {
     { key: 'blacklist',  label: 'Blacklist MAC',    icon: <Ban className="w-4 h-4" /> },
     { key: 'social',     label: 'Social',           icon: <Globe className="w-4 h-4" /> },
     { key: 'survey',     label: 'Survey',           icon: <MessageSquareDot className="w-4 h-4" /> },
+    { key: 'smtp',       label: 'Email / SMTP',     icon: <Mail className="w-4 h-4" /> },
   ];
 
   const loginMethodOptions = [
@@ -445,9 +460,66 @@ export default function SettingsPage() {
             </Field>
           </Card>
 
+          <Card title="Personalizzazione survey">
+            <p className="text-sm text-gray-500 -mt-2 mb-2">
+              Testi mostrati nella pagina survey ricevuta dall'ospite. Lascia vuoto per usare il testo predefinito. Usa <code className="bg-gray-100 px-1 rounded text-xs">{"{nome_sito}"}</code> per inserire il nome della struttura.
+            </p>
+
+            <Field label="Titolo principale">
+              <input type="text" value={config.surveyTitle ?? ''} onChange={(e) => update({ surveyTitle: e.target.value || null })}
+                placeholder="Come è stata la tua esperienza?" className={inputCls} />
+            </Field>
+
+            <Field label="Sottotitolo">
+              <input type="text" value={config.surveySubtitle ?? ''} onChange={(e) => update({ surveySubtitle: e.target.value || null })}
+                placeholder="La tua opinione su {nome_sito} ci aiuta a migliorare il servizio." className={inputCls} />
+            </Field>
+
+            <Field label="Testo domanda NPS">
+              <input type="text" value={config.surveyQuestionLabel ?? ''} onChange={(e) => update({ surveyQuestionLabel: e.target.value || null })}
+                placeholder="Da 0 a 10, quanto ci consiglieresti a un amico?" className={inputCls} />
+            </Field>
+
+            <Field label="Etichetta commento">
+              <input type="text" value={config.surveyCommentLabel ?? ''} onChange={(e) => update({ surveyCommentLabel: e.target.value || null })}
+                placeholder="Vuoi aggiungere qualcosa?" className={inputCls} />
+            </Field>
+
+            <Field label="Testo pulsante invio">
+              <input type="text" value={config.surveyButtonText ?? ''} onChange={(e) => update({ surveyButtonText: e.target.value || null })}
+                placeholder="Invia valutazione" className={inputCls} />
+            </Field>
+
+            <Field label="Titolo pagina di ringraziamento">
+              <input type="text" value={config.surveyThankYouTitle ?? ''} onChange={(e) => update({ surveyThankYouTitle: e.target.value || null })}
+                placeholder="Grazie mille!" className={inputCls} />
+            </Field>
+
+            <Field label="Campo commento libero">
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <div
+                  onClick={() => update({ surveyShowComment: !config.surveyShowComment })}
+                  className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${config.surveyShowComment ? 'bg-brand-500' : 'bg-gray-200'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${config.surveyShowComment ? 'translate-x-5' : ''}`} />
+                </div>
+                <span className="text-sm text-gray-700">
+                  {config.surveyShowComment ? 'Campo commento visibile' : 'Campo commento nascosto'}
+                </span>
+              </label>
+            </Field>
+          </Card>
+
+          <Card title="Anteprima survey">
+            <p className="text-sm text-gray-500 -mt-2 mb-4">
+              Anteprima in tempo reale di come vedrà la survey l'ospite.
+            </p>
+            <SurveyPreview config={config} />
+          </Card>
+
           <Card title="Email di test">
             <p className="text-sm text-gray-500 -mt-2 mb-3">
-              Invia una email survey di prova al tuo indirizzo per verificare che la configurazione SendGrid funzioni.
+              Invia una email survey di prova al tuo indirizzo per verificare la configurazione SMTP.
             </p>
             <div className="flex items-center gap-3">
               <button
@@ -545,6 +617,148 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {/* Tab: Email / SMTP */}
+      {tab === 'smtp' && (
+        <div className="space-y-6">
+          <Card title="Configurazione server SMTP per-sito">
+            <p className="text-sm text-gray-500 -mt-2 mb-2">
+              Configura il server SMTP di questo sito per inviare le email survey. Se vuoto, viene usata la configurazione globale del server.
+            </p>
+
+            <Field label="Host SMTP">
+              <input
+                type="text"
+                value={config.smtpHost ?? ''}
+                onChange={(e) => update({ smtpHost: e.target.value || null })}
+                placeholder="smtp.gmail.com"
+                className={inputCls}
+              />
+            </Field>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Porta">
+                <input
+                  type="number"
+                  value={config.smtpPort}
+                  onChange={(e) => update({ smtpPort: parseInt(e.target.value) || 587 })}
+                  placeholder="587"
+                  className={inputCls + ' font-mono'}
+                />
+              </Field>
+              <Field label="Sicurezza">
+                <select
+                  value={config.smtpSecurity}
+                  onChange={(e) => update({ smtpSecurity: e.target.value })}
+                  className={inputCls}
+                >
+                  <option value="none">Nessuna (testo in chiaro)</option>
+                  <option value="starttls">STARTTLS (porta 587)</option>
+                  <option value="ssl">SSL/TLS diretto (porta 465)</option>
+                </select>
+              </Field>
+            </div>
+
+            <Field label="Username SMTP">
+              <input
+                type="text"
+                value={config.smtpUsername ?? ''}
+                onChange={(e) => update({ smtpUsername: e.target.value || null })}
+                placeholder="noreply@tuodominio.it"
+                className={inputCls}
+              />
+            </Field>
+
+            <Field label="Password SMTP">
+              <input
+                type="password"
+                value={config.smtpPassword ?? ''}
+                onChange={(e) => update({ smtpPassword: e.target.value || null })}
+                placeholder="••••••••"
+                className={inputCls}
+              />
+            </Field>
+
+            <Field label="Email mittente (From)">
+              <input
+                type="email"
+                value={config.smtpFromEmail ?? ''}
+                onChange={(e) => update({ smtpFromEmail: e.target.value || null })}
+                placeholder="noreply@tuodominio.it"
+                className={inputCls}
+              />
+            </Field>
+
+            <Field label="Nome mittente (From name)">
+              <input
+                type="text"
+                value={config.smtpFromName ?? ''}
+                onChange={(e) => update({ smtpFromName: e.target.value || null })}
+                placeholder="Hotel Bella Vista"
+                className={inputCls}
+              />
+            </Field>
+
+            <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-lg mt-2">
+              ⚠️ La password è salvata in chiaro nel DB. In produzione usare un vault (Fase 4).
+            </p>
+          </Card>
+
+          <Card title="Test connessione SMTP">
+            <p className="text-sm text-gray-500 -mt-2 mb-3">
+              Salva prima le impostazioni, poi invia un'email di test per verificare che il server SMTP funzioni.
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={async () => {
+                  setTestEmailSending(true);
+                  setTestEmailMsg(null);
+                  try {
+                    const params = siteId ? `?site_id=${siteId}` : '';
+                    const { data } = await api.post<{ success: boolean; sentTo: string }>(`/survey/send-test${params}`);
+                    setTestEmailMsg(`Email inviata a ${data.sentTo}`);
+                  } catch (e: unknown) {
+                    const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+                    setTestEmailMsg(detail ?? 'Errore invio email');
+                  } finally {
+                    setTestEmailSending(false);
+                  }
+                }}
+                disabled={testEmailSending}
+                className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+              >
+                <Mail className="w-4 h-4" />
+                {testEmailSending ? 'Invio...' : 'Invia email di test'}
+              </button>
+              {testEmailMsg && (
+                <p className={`text-sm ${testEmailMsg.startsWith('Email inviata') ? 'text-green-600' : 'text-red-500'}`}>
+                  {testEmailMsg}
+                </p>
+              )}
+            </div>
+          </Card>
+
+          <Card title="Provider comuni">
+            <div className="space-y-2 text-sm text-gray-600">
+              {([
+                { name: 'Gmail',        host: 'smtp.gmail.com',       port: 587, note: 'Richiede "App Password" (non la password Google)' },
+                { name: 'Outlook/365',  host: 'smtp.office365.com',   port: 587, note: 'Autenticazione OAuth consigliata per produzione' },
+                { name: 'Aruba Mail',   host: 'smtps.aruba.it',       port: 465, note: 'Usa SSL/TLS diretto — seleziona SSL nel menu sicurezza' },
+                { name: 'Register.it',  host: 'smtp.register.it',     port: 587, note: 'STARTTLS su porta 587' },
+                { name: 'Libero/IOL',   host: 'smtp.libero.it',       port: 587, note: 'STARTTLS su porta 587' },
+              ]).map((p) => (
+                <div key={p.name} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+                  <div className="min-w-28 font-semibold text-gray-800">{p.name}</div>
+                  <div>
+                    <span className="font-mono text-xs bg-gray-200 px-1.5 py-0.5 rounded">{p.host}:{p.port}</span>
+                    <span className="text-xs text-gray-400 ml-2">{p.note}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* Tab: Whitelist MAC */}
       {tab === 'whitelist' && (
         <div className="space-y-6">
@@ -588,6 +802,131 @@ export default function SettingsPage() {
           </Card>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Survey Preview ──────────────────────────────────────────────────────────
+
+function SurveyPreview({ config }: { config: SiteConfig }) {
+  const [selectedScore, setSelectedScore] = useState<number | null>(null);
+  const primary = config.primaryColor || '#0055ff';
+
+  const t = (val: string | null, def: string) =>
+    (val || def).replace('{nome_sito}', config.name || 'La struttura');
+
+  const title       = t(config.surveyTitle,         'Come è stata la tua esperienza?');
+  const subtitle    = t(config.surveySubtitle,       `La tua opinione su ${config.name || 'la struttura'} ci aiuta a migliorare il servizio.`);
+  const qLabel      = t(config.surveyQuestionLabel,  'Da 0 a 10, quanto ci consiglieresti a un amico?');
+  const cLabel      = t(config.surveyCommentLabel,   'Vuoi aggiungere qualcosa?');
+  const btnText     = t(config.surveyButtonText,     'Invia valutazione');
+  const tyTitle     = t(config.surveyThankYouTitle,  'Grazie mille!');
+  const showComment = config.surveyShowComment !== false;
+
+  return (
+    <div className="flex justify-center">
+      <div
+        className="w-full max-w-sm rounded-2xl shadow-lg overflow-hidden border border-gray-100"
+        style={{ background: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}
+      >
+        {/* Header */}
+        {config.logoUrl ? (
+          <div className="flex items-center justify-center px-6 py-4 border-b border-gray-100 bg-white">
+            <img src={config.logoUrl} alt="logo" className="max-h-12 max-w-36 object-contain" />
+          </div>
+        ) : (
+          <div className="px-6 py-4 text-center" style={{ background: primary }}>
+            <span className="text-white font-bold text-base">{config.name || 'La struttura'}</span>
+          </div>
+        )}
+
+        {/* Body */}
+        <div className="px-6 py-6">
+          <h2 className="font-bold text-gray-900 text-base mb-1.5">{title}</h2>
+          <p className="text-sm text-gray-500 mb-5 leading-relaxed">{subtitle}</p>
+
+          {/* Scores */}
+          <p className="text-xs font-semibold text-gray-700 mb-2">{qLabel}</p>
+          <div className="flex gap-1 flex-wrap justify-center mb-1">
+            {Array.from({ length: 11 }, (_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setSelectedScore(i)}
+                className="w-8 h-8 rounded-lg text-xs font-semibold transition-all"
+                style={{
+                  border: selectedScore === i ? `2px solid ${primary}` : '2px solid #e0e0e0',
+                  background: selectedScore === i ? primary : '#fff',
+                  color: selectedScore === i ? '#fff' : '#555',
+                  cursor: 'pointer',
+                }}
+              >
+                {i}
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-between text-xs text-gray-400 mb-4 px-0.5">
+            <span>Per niente</span><span>Assolutamente</span>
+          </div>
+
+          {/* Comment */}
+          {showComment && (
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-gray-700 mb-1.5">
+                {cLabel} <span className="font-normal text-gray-400">(opzionale)</span>
+              </p>
+              <textarea
+                readOnly
+                placeholder="Scrivi qui la tua opinione..."
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none text-gray-400 bg-gray-50"
+                rows={2}
+              />
+            </div>
+          )}
+
+          {/* Button */}
+          <button
+            type="button"
+            className="w-full py-3 rounded-lg text-white text-sm font-semibold"
+            style={{ background: primary }}
+          >
+            {btnText}
+          </button>
+        </div>
+
+        {/* Thank you preview (solo se score selezionato) */}
+        {selectedScore !== null && (
+          <div className="px-6 pb-6 pt-2 border-t border-gray-100 text-center">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2"
+              style={{ background: primary }}
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <p className="font-bold text-gray-900 text-sm mb-1">{tyTitle}</p>
+            <p className="text-xs text-gray-400">
+              {selectedScore >= 9
+                ? 'Mostra link recensione Google'
+                : selectedScore >= 7
+                ? 'Pagina di ringraziamento semplice'
+                : 'Messaggio "lo trasmetteremo allo staff"'}
+            </p>
+            <button
+              type="button"
+              onClick={() => setSelectedScore(null)}
+              className="mt-2 text-xs text-gray-400 underline"
+            >
+              Torna alla survey
+            </button>
+          </div>
+        )}
+
+        <div className="text-center pb-3">
+          <span className="text-xs text-gray-300">Powered by Authwifi</span>
+        </div>
+      </div>
     </div>
   );
 }
