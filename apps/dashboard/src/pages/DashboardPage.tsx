@@ -1,5 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
-import { Users, Wifi, Mail, TrendingUp, ArrowRight } from 'lucide-react';
+import { Users, Wifi, Mail, TrendingUp, ArrowRight, MessageSquareDot, TrendingDown, Minus } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
@@ -8,6 +8,23 @@ import api from '../api/client';
 import { useAuthStore } from '../stores/auth';
 
 const WorldMap = lazy(() => import('../components/WorldMap'));
+
+interface NpsSummary {
+  total: number;
+  avgNps: number | null;
+  promotersPct: number;
+  passivesPct: number;
+  detractorsPct: number;
+  items: {
+    id: string;
+    npsScore: number | null;
+    comment: string | null;
+    submittedAt: string | null;
+    guestFirstName: string | null;
+    guestLastName: string | null;
+    guestEmail: string | null;
+  }[];
+}
 
 interface Stats {
   totalGuests: number;
@@ -29,6 +46,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [noSite, setNoSite] = useState(false);
+  const [nps, setNps] = useState<NpsSummary | null>(null);
   const tenantId = useAuthStore((s) => s.tenantId);
   const role = useAuthStore((s) => s.role);
   const navigate = useNavigate();
@@ -39,8 +57,12 @@ export default function DashboardPage() {
         if (role === 'superadmin') { setLoading(false); return; }
         const { data: sites } = await api.get<{ id: string }[]>('/sites');
         if (!sites.length) { setNoSite(true); setLoading(false); return; }
-        const { data } = await api.get<Stats>(`/stats/${sites[0].id}`);
+        const [{ data }, { data: npsData }] = await Promise.all([
+          api.get<Stats>(`/stats/${sites[0].id}`),
+          api.get<NpsSummary>(`/survey/responses?site_id=${sites[0].id}`),
+        ]);
         setStats(data);
+        setNps(npsData);
       } finally {
         setLoading(false);
       }
@@ -158,6 +180,72 @@ export default function DashboardPage() {
         )}
         {!loading && !stats?.topCountries.length && (
           <p className="text-sm text-gray-400 text-center py-4">Nessun dato disponibile</p>
+        )}
+      </div>
+
+      {/* NPS Widget */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MessageSquareDot className="w-4 h-4 text-brand-500" />
+            <h2 className="font-semibold text-gray-900">NPS & Feedback</h2>
+          </div>
+          <button onClick={() => navigate('/survey')} className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium">
+            Vedi tutti <ArrowRight className="w-3 h-3" />
+          </button>
+        </div>
+        {loading ? (
+          <div className="px-6 py-8 text-center text-sm text-gray-400">Caricamento...</div>
+        ) : !nps || nps.total === 0 ? (
+          <div className="px-6 py-8 text-center">
+            <MessageSquareDot className="w-7 h-7 text-gray-200 mx-auto mb-2" />
+            <p className="text-sm text-gray-400">Nessuna risposta survey ancora.</p>
+          </div>
+        ) : (
+          <div className="px-6 py-5 space-y-4">
+            {/* Score + distribuzione */}
+            <div className="flex items-center gap-6">
+              <div className="text-center shrink-0">
+                <p className={`text-4xl font-bold ${nps.avgNps !== null && nps.avgNps >= 8 ? 'text-green-600' : nps.avgNps !== null && nps.avgNps >= 6 ? 'text-yellow-500' : 'text-red-500'}`}>
+                  {nps.avgNps ?? '—'}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">Media NPS</p>
+              </div>
+              <div className="flex-1 space-y-2">
+                <div className="flex h-2.5 rounded-full overflow-hidden gap-0.5">
+                  {nps.promotersPct > 0  && <div className="bg-green-500"  style={{ width: `${nps.promotersPct}%` }} />}
+                  {nps.passivesPct > 0   && <div className="bg-yellow-400" style={{ width: `${nps.passivesPct}%` }} />}
+                  {nps.detractorsPct > 0 && <div className="bg-red-500"    style={{ width: `${nps.detractorsPct}%` }} />}
+                </div>
+                <div className="flex gap-4">
+                  <span className="flex items-center gap-1 text-xs text-gray-500"><TrendingUp className="w-3 h-3 text-green-500"/>{nps.promotersPct}% Promotori</span>
+                  <span className="flex items-center gap-1 text-xs text-gray-500"><Minus className="w-3 h-3 text-yellow-500"/>{nps.passivesPct}% Passivi</span>
+                  <span className="flex items-center gap-1 text-xs text-gray-500"><TrendingDown className="w-3 h-3 text-red-500"/>{nps.detractorsPct}% Detrattori</span>
+                </div>
+              </div>
+            </div>
+            {/* Ultime 3 risposte */}
+            <div className="divide-y divide-gray-50 border-t border-gray-50">
+              {nps.items.slice(0, 3).map((item) => {
+                const name = [item.guestFirstName, item.guestLastName].filter(Boolean).join(' ') || item.guestEmail || 'Ospite anonimo';
+                const scoreColor = item.npsScore === null ? 'bg-gray-100 text-gray-500' : item.npsScore >= 9 ? 'bg-green-100 text-green-700' : item.npsScore >= 7 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700';
+                return (
+                  <div key={item.id} className="py-3 flex items-start gap-3">
+                    <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${scoreColor}`}>
+                      {item.npsScore ?? '—'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{name}</p>
+                      {item.comment && <p className="text-xs text-gray-400 truncate">"{item.comment}"</p>}
+                    </div>
+                    <span className="text-xs text-gray-400 shrink-0">
+                      {item.submittedAt ? new Date(item.submittedAt).toLocaleDateString('it-IT') : '—'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         )}
       </div>
 
