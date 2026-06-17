@@ -234,7 +234,7 @@ class WifiSession(Base):
     __tablename__ = "wifi_sessions"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
-    guest_id: Mapped[str] = mapped_column("guestId", String, ForeignKey("guests.id"), nullable=False)
+    guest_id: Mapped[str | None] = mapped_column("guestId", String, ForeignKey("guests.id"), nullable=True)
     site_id: Mapped[str] = mapped_column("siteId", String, ForeignKey("sites.id"), nullable=False)
     mac_address: Mapped[str] = mapped_column("macAddress", String, nullable=False)
     ap_mac: Mapped[str | None] = mapped_column("apMac", String, nullable=True)

@@ -253,7 +253,7 @@ def send_test_email(
                 }
 
     token = jwt.encode(
-        {"type": "survey", "guest_id": "test", "site_id": site_id or "test", "tenant_id": current["tenant_id"]},
+        {"type": "survey", "guest_id": None, "site_id": site_id or "test", "tenant_id": current["tenant_id"]},
         SECRET_KEY, algorithm=ALGORITHM,
     )
     survey_url = f"{os.getenv('BASE_URL', 'http://localhost:8000')}/survey/{token}"
@@ -382,7 +382,7 @@ def survey_submit(
         sr.submitted_at = datetime.utcnow()
     else:
         sr = SurveyResponse(
-            guest_id=payload["guest_id"],
+            guest_id=payload.get("guest_id"),
             site_id=payload["site_id"],
             tenant_id=payload["tenant_id"],
             nps_score=nps_score,
