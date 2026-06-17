@@ -96,7 +96,9 @@ Authwifi/
 │   │       ├── 005_reviews.py          # external_reviews, googlePlaceId su sites
 │   │       ├── 006_smtp.py             # 7 colonne SMTP per-sito su sites
 │   │       ├── 007_smtp_security.py    # sostituisce smtpUseTls (bool) con smtpSecurity (varchar: none/starttls/ssl)
-│   │       └── 008_survey_custom.py    # 7 colonne personalizzazione survey su sites
+│   │       ├── 008_survey_custom.py    # 7 colonne personalizzazione survey su sites
+│   │       ├── 009_email_customization.py  # 4 colonne personalizzazione email su sites
+│   │       └── 010_nullable_guest_id.py    # guestId nullable in survey_responses (fix token di test)
 │   ├── routers/
 │   │   ├── auth.py                     # POST /auth/login
 │   │   ├── tenants.py                  # CRUD tenant
@@ -117,7 +119,7 @@ Authwifi/
 │   └── services/
 │       ├── splash.py                   # render_splash(): HTML server-rendered
 │       ├── omada.py                    # OmadaClient: get_session + authorize_client
-│       ├── email.py                    # send_survey_email() via smtplib; none/starttls/ssl; logo sito in header
+│       ├── email.py                    # send_survey_email() via smtplib; none/starttls/ssl; template moderno responsive; logo sito; BASE_URL per URL assoluti
 │       ├── google_places.py            # fetch_google_reviews() via Places API
 │       └── rabbitmq.py                 # publish_survey() + consume_survey()
 ├── apps/
@@ -130,7 +132,7 @@ Authwifi/
 │           │   ├── GuestsPage.tsx
 │           │   ├── ManagersPage.tsx
 │           │   ├── SegmentsPage.tsx    # Gestione segmenti/sotto-segmenti
-│           │   ├── SettingsPage.tsx    # Tab: Branding, Omada, Login, Whitelist, Blacklist, Social, Survey (+ personalizzazione + anteprima live), Email/SMTP
+│           │   ├── SettingsPage.tsx    # Tab: Branding, Omada, Login, Whitelist, Blacklist, Social, Survey (personalizzazione survey + EmailPreview + SurveyPreview live), Email/SMTP + personalizzazione email
 │           │   ├── SurveyPage.tsx      # Tab: NPS & Feedback, Recensioni Google
 │           │   └── SuperAdminPage.tsx
 │           ├── components/
@@ -387,6 +389,55 @@ openssl rand -hex 32
   - si aggiorna in tempo reale mentre si modificano i campi sopra
 
 **Deliverable:** survey completamente brandizzata per ogni struttura, preview live in dashboard senza deploy. ✅
+
+---
+
+### Fase 2.3 — Email moderna + personalizzazione email ✅ COMPLETATA
+
+> Email di survey riscritta da zero con design moderno responsive. Aggiunta personalizzazione testi email per sito con anteprima live in dashboard.
+
+#### Backend
+
+- [x] Alembic migration 009: 4 colonne personalizzazione email su `sites`:
+  `emailSubject`, `emailBodyText`, `emailButtonText`, `emailFooterText`
+- [x] `models.py` — 4 nuovi `Mapped` fields su `Site`
+- [x] `routers/sites.py` — campi email customization in `SiteOut` e `UpdateSiteDto`
+- [x] `services/email.py` — riscrittura completa del template HTML:
+  - card 560px max-width, sfondo bianco, `color-scheme:light` (forza tema chiaro nei client email)
+  - header con logo sito (sfondo bianco) o nome sito su sfondo `primaryColor`
+  - `__PLACEHOLDER__` substitution pattern (evita conflitti con f-string Python)
+  - URL survey generato con `BASE_URL` env var (non più localhost hardcoded)
+  - logo con URL assoluto (prepend `BASE_URL` se path relativo `/public/…`)
+  - testo label NPS mantenuto, rimossi i box numerici (non interattivi nell'email)
+  - responsive `@media (max-width:600px)`
+- [x] `workers/survey_sender.py` — estrae `email_config` dal sito e lo passa a `send_survey_email()`
+- [x] `routers/survey.py` — `POST /survey/send-test` passa `email_config` dict
+- [x] `docker-compose.yml` — aggiunta variabile `BASE_URL` al servizio backend
+- [x] `.env` — `BASE_URL=http://<IP>:3000` (nginx proxying)
+- [x] Alembic migration 010: `guestId` nullable in `survey_responses`
+  - **fix bug:** `send-test` usava `guest_id='test'` → FK violation al submit survey; ora `guest_id=None`
+- [x] `routers/survey.py` — `survey_submit` usa `payload.get("guest_id")` per gestire None
+
+#### Dashboard
+
+- [x] `SettingsPage.tsx` — card "Personalizzazione email" nel tab Survey:
+  - 4 input testo (oggetto, testo corpo, testo bottone, testo footer)
+  - placeholder `{nome_sito}` e `{nome_ospite}` supportati
+- [x] `SettingsPage.tsx` — card "Anteprima email": componente React `EmailPreview`
+  - riproduce fedelmente il layout dell'email reale
+  - header logo/nome, saluto, corpo testo, label NPS, bottone CTA, footer
+  - si aggiorna in tempo reale al cambio dei campi sopra
+
+#### UX / layout fixes (survey form, email, dashboard)
+
+- [x] Testo centrato in tutte le card: `h1`, paragrafo corpo, label NPS in email.py, survey.py, EmailPreview, SurveyPreview
+- [x] Logo centrato (`display:block; margin:0 auto`) e ingrandito (64px → 120px h, 200px → 320px w) in form survey, thank-you page, email, anteprime dashboard
+- [x] `_thank_you_page`: fix layout (logo e card erano affiancati come flex-item) → wrapper div unico
+- [x] NPS score buttons su riga singola (`flex-wrap:nowrap`, bottoni ridotti da 36px a 30px) in form survey e SurveyPreview
+- [x] Box numerici NPS rimossi dall'email (non interattivi) — rimane solo il testo label
+- [x] Dashboard pagine tutte full-width (rimosso `max-w-*` dai container principali)
+
+**Deliverable:** email professionale e brandizzata, personalizzabile per sito, con anteprima live in dashboard. ✅
 
 ---
 
