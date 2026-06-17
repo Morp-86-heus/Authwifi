@@ -13,6 +13,7 @@ from auth import SECRET_KEY, get_current_manager
 from fastapi import HTTPException
 from database import get_db
 from models import Guest, Manager, Site, SurveyResponse
+from services.crypto import decrypt
 
 router = APIRouter(prefix="/survey", tags=["survey"])
 logger = logging.getLogger(__name__)
@@ -251,7 +252,7 @@ def send_test_email(
                     "port":       site_obj.smtp_port,
                     "security":   site_obj.smtp_security,
                     "username":   site_obj.smtp_username,
-                    "password":   site_obj.smtp_password,
+                    "password":   decrypt(site_obj.smtp_password),
                     "from_email": site_obj.smtp_from_email,
                     "from_name":  site_obj.smtp_from_name,
                 }

@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from models import Site, SurveyResponse, new_id
 from services.email import send_survey_email
 from services.rabbitmq import consume_survey
+from services.crypto import decrypt
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,7 +49,7 @@ def _smtp_config_from_site(site: Site) -> dict | None:
         "port":       site.smtp_port,
         "security":   site.smtp_security,
         "username":   site.smtp_username,
-        "password":   site.smtp_password,
+        "password":   decrypt(site.smtp_password),
         "from_email": site.smtp_from_email,
         "from_name":  site.smtp_from_name,
     }

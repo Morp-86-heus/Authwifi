@@ -77,7 +77,10 @@ class SiteOut(BaseModel):
 
 
 def _out(site: Site) -> dict:
-    return SiteOut.model_validate(site).model_dump(by_alias=True)
+    d = SiteOut.model_validate(site).model_dump(by_alias=True)
+    d['omadaOperatorPass'] = None
+    d['smtpPassword'] = None
+    return d
 
 
 class CreateSiteDto(BaseModel):
@@ -154,6 +157,10 @@ def create_site(
         data["tenant_id"] = current["tenant_id"]
     elif "tenant_id" not in data:
         raise HTTPException(status_code=400, detail="tenant_id richiesto per superadmin")
+    if "omada_operator_pass" in data:
+        data["omada_operator_pass"] = encrypt(data["omada_operator_pass"])
+    if "smtp_password" in data:
+        data["smtp_password"] = encrypt(data["smtp_password"])
     site = Site(**data)
     db.add(site)
     db.commit()
@@ -206,10 +213,13 @@ def update_site(
         raise HTTPException(status_code=404, detail="Sito non trovato")
     _data = dto.model_dump(exclude_none=True)
     _op_pass = _data.pop("omada_operator_pass", None)
+    _smtp_pass = _data.pop("smtp_password", None)
     for key, val in _data.items():
         setattr(site, key, val)
     if _op_pass is not None:
         site.omada_operator_pass = encrypt(_op_pass)
+    if _smtp_pass is not None:
+        site.smtp_password = encrypt(_smtp_pass)
     db.commit()
     db.refresh(site)
     from services.cache import cache_delete

@@ -346,7 +346,7 @@ async def guest_login(
                 omadac_id=db_site.omada_omadac_id,
                 site_id=db_site.omada_site_id,
                 operator_user=db_site.omada_operator_user,
-                operator_pass=db_site.omada_operator_pass,
+                operator_pass=decrypt(db_site.omada_operator_pass),
                 client_mac=client_mac,
                 ap_mac=ap_mac,
                 ssid_name=ssid_name,

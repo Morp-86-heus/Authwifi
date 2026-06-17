@@ -195,6 +195,9 @@ SMTP_FROM_NAME="Authwifi"
 BASE_URL="https://tuodominio.it"          # usato per generare l'URL della survey nell'email
 # SENDGRID_* rimosso — sostituito da SMTP per-sito (dashboard) o SMTP globale sopra
 GOOGLE_PLACES_API_KEY="AIza..."          # opzionale — per sync recensioni Google
+# Cifratura dati sensibili nel DB (Fernet AES-128)
+# Generare con: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+ENCRYPTION_KEY=""                        # OBBLIGATORIO per cifrare omadaOperatorPass e smtpPassword
 SCHEDULER_INTERVAL_SECONDS=3600          # ogni quante secondi il scheduler cerca nuovi invii
 ```
 
@@ -589,7 +592,7 @@ openssl rand -hex 32
 - [ ] Aggregatore recensioni multi-piattaforma (TripAdvisor, Booking)
 - [ ] Sentiment analysis sui feedback
 - [ ] Widget recensioni embeddabile sul sito della struttura
-- [ ] Cifratura credenziali Omada (vault o colonne cifrate in DB)
+- [x] Cifratura credenziali Omada e SMTP password (Fernet AES-128) — `services/crypto.py`
 - [ ] Load testing con migliaia di tenant simulati
 
 **Deliverable:** prodotto commercializzabile con pricing a tier.
@@ -616,7 +619,7 @@ openssl rand -hex 32
 | SQLAlchemy sincrono in `async def` | I router `portal.py` sono `async def` ma usano SQLAlchemy sync: ogni query blocca l'event loop. Fix: migrare a `AsyncSession` + `asyncpg`. | Media |
 | Stats senza cache | 5-6 `COUNT`/`GROUP BY` su ogni caricamento dashboard, nessuna cache. Con Redis TTL 5min sparisce il carico. | Media |
 | `top_countries` illimitato | `stats.py`: `GROUP BY country` su tutta la storia del tenant senza data filter. Aggiungere LIMIT o finestra temporale. | Bassa |
-| Credenziali Omada in chiaro | `omadaOperatorPass` è in chiaro nel DB. In Fase 4: cifrare con KMS o vault. | Bassa (pre go-live) |
+| Credenziali Omada in chiaro | ~~`omadaOperatorPass` è in chiaro nel DB.~~ **RISOLTO** — `omadaOperatorPass` e `smtpPassword` cifrati con Fernet; decrypt trasparente in portal, workers e send-test. Impostare `ENCRYPTION_KEY` nel `.env`. | ~~Bassa (pre go-live)~~ ✅ |
 
 ---
 

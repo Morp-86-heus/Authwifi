@@ -17,6 +17,7 @@ from models import Campaign, CampaignRecipient, Site, Guest, new_id
 from services.email import send_html_email
 from services.email_builder import blocks_to_plaintext
 from services.email_builder import blocks_to_html
+from services.crypto import decrypt
 
 logging.basicConfig(
     level=logging.INFO,
@@ -52,7 +53,7 @@ def _send_one(db: Session, recipient: CampaignRecipient, campaign: Campaign, sit
             "port":       site.smtp_port,
             "security":   site.smtp_security,
             "username":   site.smtp_username,
-            "password":   site.smtp_password,
+            "password":   decrypt(site.smtp_password),
             "from_email": site.smtp_from_email,
             "from_name":  site.smtp_from_name,
         }
