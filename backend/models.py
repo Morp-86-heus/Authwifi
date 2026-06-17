@@ -356,3 +356,59 @@ class ExternalReview(Base):
     fetched_at: Mapped[datetime] = mapped_column("fetchedAt", DateTime, server_default=func.now(), onupdate=func.now())
 
     site: Mapped["Site"] = relationship("Site")
+
+
+class Campaign(Base):
+    __tablename__ = "campaigns"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    tenant_id: Mapped[str] = mapped_column("tenantId", String, ForeignKey("tenants.id"), nullable=False)
+    site_id: Mapped[str | None] = mapped_column("siteId", String, ForeignKey("sites.id"), nullable=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    subject: Mapped[str] = mapped_column(String, nullable=False, server_default="''")
+    blocks: Mapped[str] = mapped_column(String, nullable=False, server_default="'[]'")
+    status: Mapped[str] = mapped_column(String, nullable=False, server_default="'draft'")
+    audience_type: Mapped[str] = mapped_column("audienceType", String, nullable=False, server_default="'all'")
+    audience_segment_id: Mapped[str | None] = mapped_column("audienceSegmentId", String, ForeignKey("segments.id"), nullable=True)
+    audience_sub_segment_id: Mapped[str | None] = mapped_column("audienceSubSegmentId", String, ForeignKey("sub_segments.id"), nullable=True)
+    total_recipients: Mapped[int] = mapped_column("totalRecipients", Integer, nullable=False, server_default="0")
+    sent_count: Mapped[int] = mapped_column("sentCount", Integer, nullable=False, server_default="0")
+    failed_count: Mapped[int] = mapped_column("failedCount", Integer, nullable=False, server_default="0")
+    scheduled_at: Mapped[datetime | None] = mapped_column("scheduledAt", DateTime, nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column("sentAt", DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column("createdAt", DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column("updatedAt", DateTime, server_default=func.now(), onupdate=func.now())
+
+    recipients: Mapped[list["CampaignRecipient"]] = relationship("CampaignRecipient", back_populates="campaign", cascade="all, delete-orphan")
+
+
+class CampaignRecipient(Base):
+    __tablename__ = "campaign_recipients"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    campaign_id: Mapped[str] = mapped_column("campaignId", String, ForeignKey("campaigns.id"), nullable=False)
+    guest_id: Mapped[str | None] = mapped_column("guestId", String, ForeignKey("guests.id"), nullable=True)
+    email: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, server_default="'pending'")
+    sent_at: Mapped[datetime | None] = mapped_column("sentAt", DateTime, nullable=True)
+    failed_reason: Mapped[str | None] = mapped_column("failedReason", String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column("createdAt", DateTime, server_default=func.now())
+
+    campaign: Mapped["Campaign"] = relationship("Campaign", back_populates="recipients")
+
+
+class Automation(Base):
+    __tablename__ = "automations"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    tenant_id: Mapped[str] = mapped_column("tenantId", String, ForeignKey("tenants.id"), nullable=False)
+    site_id: Mapped[str | None] = mapped_column("siteId", String, ForeignKey("sites.id"), nullable=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    subject: Mapped[str] = mapped_column(String, nullable=False, server_default="''")
+    blocks: Mapped[str] = mapped_column(String, nullable=False, server_default="'[]'")
+    trigger_type: Mapped[str] = mapped_column("triggerType", String, nullable=False, server_default="'welcome'")
+    trigger_config: Mapped[str] = mapped_column("triggerConfig", String, nullable=False, server_default="'{}'")
+    delay_hours: Mapped[int] = mapped_column("delayHours", Integer, nullable=False, server_default="0")
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    created_at: Mapped[datetime] = mapped_column("createdAt", DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column("updatedAt", DateTime, server_default=func.now(), onupdate=func.now())

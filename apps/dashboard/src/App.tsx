@@ -8,6 +8,8 @@ import ManagersPage from './pages/ManagersPage';
 import SuperAdminPage from './pages/SuperAdminPage';
 import SegmentsPage from './pages/SegmentsPage';
 import SurveyPage from './pages/SurveyPage';
+import CampaignsPage from './pages/CampaignsPage';
+import AutomationsPage from './pages/AutomationsPage';
 import AppLayout from './layouts/AppLayout';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -34,6 +36,8 @@ export default function App() {
         <Route path="settings" element={<SettingsPage />} />
         <Route path="segments" element={<SegmentsPage />} />
         <Route path="survey" element={<SurveyPage />} />
+        <Route path="campaigns" element={<CampaignsPage />} />
+        <Route path="automations" element={<AutomationsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

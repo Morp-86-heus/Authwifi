@@ -58,6 +58,34 @@ def list_segments(
     }
 
 
+
+
+@router.get("/full")
+def list_segments_full(
+    db: Session = Depends(get_db),
+    current: dict = Depends(get_current_manager),
+):
+    """Restituisce tutti i segmenti con i relativi sotto-segmenti."""
+    tenant_id = current["tenant_id"]
+    items = (
+        db.query(Segment)
+        .options(joinedload(Segment.sub_segments))
+        .filter(Segment.tenant_id == tenant_id)
+        .order_by(Segment.priority, Segment.name)
+        .all()
+    )
+    return [
+        {
+            "id": s.id,
+            "name": s.name,
+            "subSegments": [
+                {"id": ss.id, "name": ss.name}
+                for ss in (s.sub_segments or [])
+            ],
+        }
+        for s in items
+    ]
+
 @router.post("")
 def create_segment(
     body: SegmentIn,

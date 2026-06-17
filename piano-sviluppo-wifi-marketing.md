@@ -60,7 +60,7 @@ Omada supporta il **portale esterno**: il controller reindirizza il client non a
 | State management | **Zustand** + localStorage | Auth token persistito |
 | Splash page | **HTML/JS vanilla server-rendered** | Render Python f-string, captive-portal compatible |
 | Database | **PostgreSQL 16** | Porta 9999, colonna `tenant_id` su ogni tabella |
-| Cache | **Redis 7** | Connesso ma non ancora utilizzato (todo) |
+| Cache | **Redis 7** | Cache splash page (4 chiavi, TTL 2-5 min), usato anche da campaign-sender |
 | Message queue | **RabbitMQ 3.13** | Connesso, pronto per campagne asincrone |
 | HTTP client Omada | **httpx** (AsyncClient condiviso) | Timeout 15s, connessioni riutilizzate |
 | Invio email | **smtplib** (Python stdlib) | SMTP per-sito configurabile in dashboard, fallback globale da env |
@@ -98,7 +98,9 @@ Authwifi/
 │   │       ├── 007_smtp_security.py    # sostituisce smtpUseTls (bool) con smtpSecurity (varchar: none/starttls/ssl)
 │   │       ├── 008_survey_custom.py    # 7 colonne personalizzazione survey su sites
 │   │       ├── 009_email_customization.py  # 4 colonne personalizzazione email su sites
-│   │       └── 010_nullable_guest_id.py    # guestId nullable in survey_responses (fix token di test)
+│   │       ├── 010_nullable_guest_id.py    # guestId nullable in survey_responses (fix token di test)
+│   │       ├── 011_campaigns.py            # tabelle campaigns + campaign_recipients + tipi PG
+│   │       └── 012_automations.py          # tabella automations + tipo automation_trigger
 │   ├── routers/
 │   │   ├── auth.py                     # POST /auth/login
 │   │   ├── tenants.py                  # CRUD tenant
@@ -106,21 +108,25 @@ Authwifi/
 │   │   ├── managers.py                 # CRUD manager con validazione site_ids
 │   │   ├── crm.py                      # Ospiti: lista paginata, dettaglio, export CSV
 │   │   ├── stats.py                    # KPI dashboard per sito
-│   │   ├── segments.py                 # CRUD segmenti e sotto-segmenti
+│   │   ├── segments.py                 # CRUD segmenti e sotto-segmenti + GET /segments/full
 │   │   ├── portal.py                   # GET /splash + POST /login + GET /welcome
 │   │   ├── whitelist.py                # MAC whitelist per sito
 │   │   ├── blacklist.py                # MAC blacklist per sito
 │   │   ├── superadmin.py              # Gestione platform-level
 │   │   ├── survey.py                   # NPS form pubblico, stats, send-test
-│   │   └── reviews.py                  # Recensioni Google: lista + sync Places API
+│   │   ├── reviews.py                  # Recensioni Google: lista + sync Places API
+│   │   ├── campaigns.py                # CRUD campagne + send-now + stats + preview
+│   │   └── automations.py              # CRUD automazioni + preview
 │   ├── workers/
 │   │   ├── survey_scheduler.py         # Pubblica su RabbitMQ ogni ora (LATERAL JOIN)
-│   │   └── survey_sender.py            # Consuma da RabbitMQ, genera JWT, invia email
+│   │   ├── survey_sender.py            # Consuma da RabbitMQ, genera JWT, invia email
+│   │   └── campaign_sender.py          # Polling ogni 30s su campaign_recipients, invia via SMTP
 │   └── services/
 │       ├── splash.py                   # render_splash(): HTML server-rendered
 │       ├── omada.py                    # OmadaClient: get_session + authorize_client
 │       ├── cache.py                    # Redis cache singleton; cache_get/set/delete; fallback trasparente al DB
-│       ├── email.py                    # send_survey_email() via smtplib; none/starttls/ssl; template moderno responsive; logo sito; BASE_URL per URL assoluti
+│       ├── email.py                    # send_survey_email() + send_html_email() via smtplib
+│       ├── email_builder.py            # blocks_to_html(): blocks JSON → HTML email table-based
 │       ├── google_places.py            # fetch_google_reviews() via Places API
 │       └── rabbitmq.py                 # publish_survey() + consume_survey()
 ├── apps/
@@ -133,15 +139,17 @@ Authwifi/
 │           │   ├── GuestsPage.tsx
 │           │   ├── ManagersPage.tsx
 │           │   ├── SegmentsPage.tsx    # Gestione segmenti/sotto-segmenti
-│           │   ├── SettingsPage.tsx    # Tab: Branding, Omada, Login, Whitelist, Blacklist, Social, Survey (personalizzazione survey + EmailPreview + SurveyPreview live), Email/SMTP + personalizzazione email
+│           │   ├── SettingsPage.tsx    # Tab: Branding, Omada, Login, Whitelist, Blacklist, Social, Survey, Email/SMTP
 │           │   ├── SurveyPage.tsx      # Tab: NPS & Feedback, Recensioni Google
+│           │   ├── CampaignsPage.tsx   # Campagne email: lista + visual block editor + send-now
+│           │   ├── AutomationsPage.tsx # Automazioni: trigger types + block editor + toggle
 │           │   └── SuperAdminPage.tsx
 │           ├── components/
 │           │   ├── GuestDetail.tsx     # Slide-over con sezione Profilazione
 │           │   ├── ImageUploader.tsx
 │           │   └── WorldMap.tsx
 │           └── layouts/
-│               └── AppLayout.tsx       # Sidebar con voci: Segmenti, Survey & NPS
+│               └── AppLayout.tsx       # Sidebar: Segmenti, Survey & NPS, Campagne, Automazioni
 ├── docker-compose.yml
 ├── .env                                # JWT_SECRET (>=32 char), DATABASE_URL, OMADA_*
 └── tsconfig.base.json
@@ -488,18 +496,58 @@ openssl rand -hex 32
 
 ---
 
-### Fase 3 — Marketing automation (4-6 settimane) ⏳ DA IMPLEMENTARE
+### Fase 3 — Campagne email e automazioni ✅ COMPLETATA
 
-- [ ] Campaign engine: builder segmenti avanzato (lingua, nazionalità, data soggiorno, ritorni, profilo)
-- [ ] Editor email (template predefiniti + MJML)
-- [ ] Canale SMS/WhatsApp via Twilio
-- [ ] Automazioni: compleanno, anniversario soggiorno, pre-stagione
-- [ ] Reportistica campagne (open rate, CTR, conversioni)
-- [x] ~~Export CSV lista ospiti~~ ✅ già implementato (Fase 1)
+> Implementata come "tutto insieme": modello dati + campagne + automazioni + visual block editor in un unico sprint.
 
-**Prerequisiti tecnici:** RabbitMQ ✅ già attivo, Redis per deduplicazione, worker asincrono Python.
+#### Backend
 
-**Deliverable:** suite di marketing utilizzabile in autonomia dal gestore.
+- [x] Alembic migration 011: tabelle `campaigns` + `campaign_recipients` con tipi PostgreSQL (`campaign_status`, `campaign_audience`, `recipient_status`)
+- [x] Alembic migration 012: tabella `automations` con tipo `automation_trigger`
+- [x] `models.py` — modelli `Campaign`, `CampaignRecipient`, `Automation`
+- [x] `services/email_builder.py` — `blocks_to_html()`: converte array di blocchi JSON in HTML email table-based; block types: `header` (auto), `text`, `button`, `divider`, `image`; header automatico con logo sito + colore primario
+- [x] `services/email.py` — aggiunta `send_html_email()`: invia email HTML generica (usata dal campaign sender, stessa config SMTP per-sito)
+- [x] `routers/campaigns.py` — CRUD campagne + endpoint:
+  - `GET /campaigns` — lista paginata con filtro sito
+  - `POST /campaigns` — crea bozza
+  - `PATCH /campaigns/{id}` — modifica bozza/pianificata
+  - `DELETE /campaigns/{id}`
+  - `POST /campaigns/{id}/preview` — restituisce HTML anteprima email (HTMLResponse)
+  - `POST /campaigns/{id}/send-now` — raccoglie destinatari, crea recipient records, imposta status=sending
+  - `GET /campaigns/{id}/stats` — contatori sent/failed/pending in tempo reale
+- [x] `routers/automations.py` — CRUD automazioni + preview; trigger types: `welcome`, `anniversary`, `inactivity`, `survey_done`, `segment_enter`; campo `delay_hours` e toggle `enabled`
+- [x] `routers/segments.py` — aggiunto endpoint `GET /segments/full` (lista segmenti con sotto-segmenti inclusi, usato dal frontend campagne)
+- [x] `workers/campaign_sender.py` — worker a polling (ogni 30s); carica recipient status=pending, invia email via SMTP del sito, aggiorna status sent/failed; aggiorna campaign.status=sent quando totalRecipients=sentCount+failedCount
+- [x] `docker-compose.yml` — nuovo servizio `campaign-sender` (dipende da postgres + redis)
+- [x] `main.py` — include `campaigns.router` e `automations.router`
+
+#### Dashboard
+
+- [x] `CampaignsPage.tsx` — pagina campagne email completa:
+  - Lista campagne con stato badge (bozza/pianificata/in invio/inviata/annullata), destinatari, date
+  - Modal crea/modifica con due tab (Impostazioni + Contenuto email)
+  - Selezione sito, oggetto email, audience type (tutti/segmento/sotto-segmento/solo consenso marketing)
+  - Pianificazione invio con datetime picker
+  - **Visual block editor**: drag & drop HTML5 nativo, blocchi text/button/divider/image
+  - **Anteprima live in browser**: `blocksToPreview()` genera HTML email direttamente nel browser (no round-trip), visualizzato in `<iframe srcDoc>`
+  - Bottone "Invia ora" con conferma; statistiche campagna in modal separato (tasso di consegna progress bar)
+- [x] `AutomationsPage.tsx` — gestione automazioni:
+  - Lista automazioni con toggle attiva/disattiva inline
+  - Modal crea/modifica: trigger type, delay hours, block editor integrato
+  - Stesso mini-block editor (text/button/divider/image) con drag & drop
+- [x] `AppLayout.tsx` — aggiunte voci sidebar: "Campagne" (icona `Send`) e "Automazioni" (icona `Zap`)
+- [x] `App.tsx` — aggiunte route `/campaigns` e `/automations`
+
+#### Audience targeting implementato
+
+| audience_type | Comportamento |
+|---|---|
+| `all` | Tutti gli ospiti del tenant (o del sito se specificato) con email |
+| `segment` | Ospiti con `segment_id` = segmento selezionato |
+| `sub_segment` | Ospiti con `sub_segment_id` = sotto-segmento selezionato |
+| `marketing_consent` | Ospiti con `Consent.type=MARKETING_EMAIL` + `granted=True` |
+
+**Deliverable:** suite di marketing operativa — creazione campagne, block editor visuale, invio immediato o pianificato, automazioni per trigger comportamentali. ✅
 
 ---
 

@@ -69,6 +69,24 @@ services:
       timeout: 5s
       retries: 5
 
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: authwifi-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: authwifi
+      RABBITMQ_DEFAULT_PASS: authwifi
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', 'ping']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
   survey-scheduler:
     build:
       context: ./backend
@@ -109,23 +127,22 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  rabbitmq:
-    image: rabbitmq:3.13-management-alpine
-    container_name: authwifi-rabbitmq
+  campaign-sender:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: authwifi-campaign-sender
     restart: unless-stopped
+    command: python workers/campaign_sender.py
     environment:
-      RABBITMQ_DEFAULT_USER: authwifi
-      RABBITMQ_DEFAULT_PASS: authwifi
-    ports:
-      - '5672:5672'
-      - '15672:15672'
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    healthcheck:
-      test: ['CMD', 'rabbitmq-diagnostics', 'ping']
-      interval: 15s
-      timeout: 10s
-      retries: 5
+      DATABASE_URL: postgresql://authwifi:authwifi@postgres:9999/authwifi
+      BASE_URL: ${BASE_URL:-http://localhost:8000}
+      CAMPAIGN_POLL_INTERVAL: ${CAMPAIGN_POLL_INTERVAL:-30}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres_data:

@@ -201,3 +201,47 @@ def send_survey_email(
     except Exception as exc:
         logger.error("Errore invio email a %s: %s", to_email, exc)
         return False
+
+
+def send_html_email(
+    to_email: str,
+    subject: str,
+    html_body: str,
+    smtp_config: dict | None = None,
+) -> bool:
+    """Invia un messaggio HTML generico (usato dal campaign sender)."""
+    cfg        = smtp_config or {}
+    host       = cfg.get("host")       or GLOBAL_SMTP_HOST
+    port       = cfg.get("port")       or GLOBAL_SMTP_PORT
+    security   = cfg.get("security")   or GLOBAL_SMTP_SECURITY
+    username   = cfg.get("username")   or GLOBAL_SMTP_USERNAME
+    password   = cfg.get("password")   or GLOBAL_SMTP_PASSWORD
+    from_email = cfg.get("from_email") or GLOBAL_SMTP_FROM_EMAIL
+    from_name  = cfg.get("from_name")  or GLOBAL_SMTP_FROM_NAME
+
+    if not host:
+        logger.warning("[EMAIL MOCK] Campaign a %s | subj: %s", to_email, subject)
+        return True
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"]    = f"{from_name} <{from_email}>"
+        msg["To"]      = to_email
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
+
+        if security == "ssl":
+            with smtplib.SMTP_SSL(host, int(port), timeout=15) as s:
+                if username and password: s.login(username, password)
+                s.sendmail(from_email, [to_email], msg.as_string())
+        else:
+            with smtplib.SMTP(host, int(port), timeout=15) as s:
+                if security == "starttls": s.starttls()
+                if username and password: s.login(username, password)
+                s.sendmail(from_email, [to_email], msg.as_string())
+
+        logger.info("HTML email a %s via %s:%s", to_email, host, port)
+        return True
+    except Exception as exc:
+        logger.error("Errore invio campaign email a %s: %s", to_email, exc)
+        return False
