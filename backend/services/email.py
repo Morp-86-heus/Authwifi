@@ -13,6 +13,7 @@ GLOBAL_SMTP_USERNAME   = os.getenv("SMTP_USERNAME", "")
 GLOBAL_SMTP_PASSWORD   = os.getenv("SMTP_PASSWORD", "")
 GLOBAL_SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", "noreply@authwifi.it")
 GLOBAL_SMTP_FROM_NAME  = os.getenv("SMTP_FROM_NAME", "Authwifi")
+BASE_URL               = os.getenv("BASE_URL", "http://localhost:8000").rstrip("/")
 
 _SCORE_BG = ["#fee2e2","#fee2e2","#fef3c7","#fef3c7","#fef3c7",
              "#fef3c7","#fef3c7","#dcfce7","#dcfce7","#dcfce7","#dcfce7"]
@@ -116,10 +117,11 @@ def _build_survey_html(
     sn_safe = sn.replace('"', '&quot;').replace('<', '&lt;').replace('>', '&gt;')
 
     if logo_url:
+        abs_logo = (BASE_URL + logo_url) if logo_url.startswith("/") else logo_url
         header = (
             '<tr><td class="eh" style="background:#ffffff;padding:24px 40px;'
             'text-align:center;border-bottom:1px solid #f0f0f0">'
-            f'<img src="{logo_url}" alt="{sn_safe}"'
+            f'<img src="{abs_logo}" alt="{sn_safe}"'
             ' style="max-height:60px;max-width:200px;object-fit:contain"/>'
             '</td></tr>'
         )

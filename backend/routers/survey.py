@@ -40,10 +40,18 @@ def _decode_token(token: str) -> dict:
 def _survey_page(site: Site, token: str, error: str = "") -> str:
     primary   = _esc(site.primary_color or "#0055ff")
     site_name = _esc(site.name)
-    logo_tag  = (
-        f'<img src="{_esc(site.logo_url)}" alt="logo" style="max-height:56px;max-width:160px;object-fit:contain;margin-bottom:20px"/>'
-        if site.logo_url else ""
-    )
+    if site.logo_url:
+        header_html = (
+            f'<div class="card-header" style="background:#fff">'
+            f'<img src="{_esc(site.logo_url)}" alt="{site_name}"/></div>'
+        )
+    else:
+        header_html = (
+            f'<div class="card-header" style="background:{primary};'
+            f'border-bottom:none">'
+            f'<span style="font-size:1.15rem;font-weight:700;color:#fff;letter-spacing:-.4px">'
+            f'{site_name}</span></div>'
+        )
     error_block = f'<p style="color:#ef4444;font-size:.85rem;margin-bottom:16px">{_esc(error)}</p>' if error else ""
 
     title    = _esc(_t(site.survey_title,         "Come è stata la tua esperienza?",                             site.name))
@@ -75,10 +83,13 @@ def _survey_page(site: Site, token: str, error: str = "") -> str:
   <title>{title} — {site_name}</title>
   <style>
     *{{box-sizing:border-box;margin:0;padding:0}}
-    body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;
+    body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#eef2f7;
           min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}}
     .card{{background:#fff;border-radius:20px;box-shadow:0 8px 40px rgba(0,0,0,.1);
-           max-width:480px;width:100%;padding:40px 32px}}
+           max-width:480px;width:100%;padding:0;overflow:hidden}}
+    .card-header{{padding:24px 32px;text-align:center;border-bottom:1px solid #f0f0f0}}
+    .card-header img{{max-height:64px;max-width:200px;object-fit:contain}}
+    .card-body{{padding:32px 32px 40px}}
     h1{{font-size:1.25rem;font-weight:700;color:#111;margin-bottom:8px}}
     .sub{{font-size:.9rem;color:#777;margin-bottom:28px;line-height:1.5}}
     .label{{font-size:.85rem;font-weight:600;color:#333;margin-bottom:10px}}
@@ -98,7 +109,8 @@ def _survey_page(site: Site, token: str, error: str = "") -> str:
 </head>
 <body>
 <div class="card">
-  {logo_tag}
+  {header_html}
+  <div class="card-body">
   <h1>{title}</h1>
   <p class="sub">{subtitle}</p>
   {error_block}
@@ -110,6 +122,7 @@ def _survey_page(site: Site, token: str, error: str = "") -> str:
     <button type="submit" class="btn">{btn_text}</button>
   </form>
   <p class="powered">Powered by Authwifi</p>
+  </div>
 </div>
 <script>
   document.querySelectorAll('.score-btn').forEach(btn => {{
@@ -127,10 +140,20 @@ def _survey_page(site: Site, token: str, error: str = "") -> str:
 def _thank_you_page(site: Site, nps: int) -> str:
     primary   = _esc(site.primary_color or "#0055ff")
     site_name = _esc(site.name)
-    logo_tag  = (
-        f'<img src="{_esc(site.logo_url)}" alt="logo" style="max-height:56px;max-width:160px;object-fit:contain;margin-bottom:20px"/>'
-        if site.logo_url else ""
-    )
+    if site.logo_url:
+        ty_header = (
+            f'<div style="background:#fff;padding:24px 32px;text-align:center;'
+            f'border-bottom:1px solid #f0f0f0;border-radius:20px 20px 0 0">'
+            f'<img src="{_esc(site.logo_url)}" alt="{site_name}" '
+            f'style="max-height:64px;max-width:200px;object-fit:contain"/></div>'
+        )
+    else:
+        ty_header = (
+            f'<div style="background:{primary};padding:24px 32px;text-align:center;'
+            f'border-radius:20px 20px 0 0">'
+            f'<span style="font-size:1.15rem;font-weight:700;color:#fff;letter-spacing:-.4px">'
+            f'{site_name}</span></div>'
+        )
     ty_title = _esc(_t(site.survey_thank_you_title, "Grazie mille!", site.name))
 
     if nps >= 9 and site.google_review_url:
@@ -168,8 +191,8 @@ def _thank_you_page(site: Site, nps: int) -> str:
   </style>
 </head>
 <body>
-<div class="card">
-  {logo_tag}
+{ty_header}
+<div class="card" style="border-radius:0 0 20px 20px;padding-top:32px">
   <div class="check">
     <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#fff"
          stroke-width="3" stroke-linecap="round" stroke-linejoin="round">

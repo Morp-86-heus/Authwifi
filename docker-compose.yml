@@ -34,6 +34,7 @@ services:
       OMADA_OMADAC_ID: ${OMADA_OMADAC_ID:-}
       OMADA_OPERATOR_USERNAME: ${OMADA_OPERATOR_USERNAME:-}
       OMADA_OPERATOR_PASSWORD: ${OMADA_OPERATOR_PASSWORD:-}
+      BASE_URL: ${BASE_URL:-http://localhost:8000}
     ports:
       - '8000:8000'
     depends_on:
