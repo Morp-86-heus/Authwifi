@@ -1025,15 +1025,6 @@ function EmailPreview({ config }: { config: SiteConfig }) {
             <p style={{ margin: '0 0 8px', fontSize: '9px', fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.8px', textAlign: 'center' }}>
               Da 0 a 10, quanto ci consiglieresti?
             </p>
-            <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap' }}>
-              {Array.from({ length: 11 }, (_, i) => (
-                <div key={i} style={{ width: '26px', height: '26px', borderRadius: '5px', background: scoreBg[i], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: scoreFg[i] }}>{i}</div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
-              <span style={{ fontSize: '9px', color: '#bbb' }}>Per niente</span>
-              <span style={{ fontSize: '9px', color: '#bbb' }}>Assolutamente</span>
-            </div>
           </div>
           <div style={{ textAlign: 'center', marginBottom: '24px' }}>
             <div style={{ display: 'inline-block', background: primary, color: '#fff', padding: '12px 32px', borderRadius: '10px', fontSize: '13px', fontWeight: 700 }}>
