@@ -1,5 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
-import { Users, Wifi, Mail, TrendingUp, ArrowRight, MessageSquareDot, TrendingDown, Minus } from 'lucide-react';
+import { Users, Wifi, Mail, TrendingUp, ArrowRight, MessageSquareDot, TrendingDown, Minus, Star } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
@@ -26,6 +26,21 @@ interface NpsSummary {
   }[];
 }
 
+interface ReviewsSummary {
+  avgRating: number | null;
+  total: number;
+  lastSync: string | null;
+  hasApiKey: boolean;
+  items: {
+    id: string;
+    authorName: string | null;
+    authorPhoto: string | null;
+    rating: number | null;
+    text: string | null;
+    publishedAt: string | null;
+  }[];
+}
+
 interface Stats {
   totalGuests: number;
   newGuestsThisWeek: number;
@@ -47,6 +62,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [noSite, setNoSite] = useState(false);
   const [nps, setNps] = useState<NpsSummary | null>(null);
+  const [reviews, setReviews] = useState<ReviewsSummary | null>(null);
   const tenantId = useAuthStore((s) => s.tenantId);
   const role = useAuthStore((s) => s.role);
   const navigate = useNavigate();
@@ -57,12 +73,14 @@ export default function DashboardPage() {
         if (role === 'superadmin') { setLoading(false); return; }
         const { data: sites } = await api.get<{ id: string }[]>('/sites');
         if (!sites.length) { setNoSite(true); setLoading(false); return; }
-        const [{ data }, { data: npsData }] = await Promise.all([
+        const [{ data }, { data: npsData }, { data: revData }] = await Promise.all([
           api.get<Stats>(`/stats/${sites[0].id}`),
           api.get<NpsSummary>(`/survey/responses?site_id=${sites[0].id}`),
+          api.get<ReviewsSummary>(`/reviews?site_id=${sites[0].id}&source=google`),
         ]);
         setStats(data);
         setNps(npsData);
+        setReviews(revData);
       } finally {
         setLoading(false);
       }
@@ -240,6 +258,93 @@ export default function DashboardPage() {
                     </div>
                     <span className="text-xs text-gray-400 shrink-0">
                       {item.submittedAt ? new Date(item.submittedAt).toLocaleDateString('it-IT') : '—'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Recensioni Google */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+            <h2 className="font-semibold text-gray-900">Recensioni Google</h2>
+          </div>
+          <button onClick={() => navigate('/survey')} className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium">
+            Vedi tutte <ArrowRight className="w-3 h-3" />
+          </button>
+        </div>
+        {loading ? (
+          <div className="px-6 py-8 text-center text-sm text-gray-400">Caricamento...</div>
+        ) : !reviews || reviews.total === 0 ? (
+          <div className="px-6 py-8 text-center">
+            <Star className="w-7 h-7 text-gray-200 fill-gray-200 mx-auto mb-2" />
+            <p className="text-sm text-gray-400">
+              {reviews?.hasApiKey === false
+                ? 'Configura la Google Places API Key in Impostazioni → Survey'
+                : 'Nessuna recensione ancora. Usa il pulsante Sincronizza nella pagina Survey.'}
+            </p>
+          </div>
+        ) : (
+          <div className="px-6 py-5 space-y-4">
+            {/* Media stelle */}
+            <div className="flex items-center gap-5">
+              <div className="text-center shrink-0">
+                <p className="text-4xl font-bold text-gray-900">{reviews.avgRating ?? '—'}</p>
+                <div className="flex justify-center gap-0.5 mt-1">
+                  {[1,2,3,4,5].map((s) => (
+                    <Star key={s} className={`w-3.5 h-3.5 ${reviews.avgRating && s <= Math.round(reviews.avgRating) ? 'text-amber-400 fill-amber-400' : 'text-gray-200 fill-gray-200'}`} />
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400 mt-0.5">{reviews.total} recension{reviews.total === 1 ? 'e' : 'i'}</p>
+              </div>
+              <div className="flex-1 space-y-1.5">
+                {[5,4,3,2,1].map((star) => {
+                  const cnt = reviews.items.filter(r => r.rating === star).length;
+                  const pct = reviews.items.length > 0 ? Math.round((cnt / reviews.items.length) * 100) : 0;
+                  return (
+                    <div key={star} className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 w-3">{star}</span>
+                      <Star className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" />
+                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-amber-400 rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-xs text-gray-400 w-6 text-right">{cnt}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            {/* Ultime 3 recensioni */}
+            <div className="divide-y divide-gray-50 border-t border-gray-50">
+              {reviews.items.slice(0, 3).map((r) => {
+                const initials = (r.authorName ?? 'A')[0].toUpperCase();
+                return (
+                  <div key={r.id} className="py-3 flex items-start gap-3">
+                    {r.authorPhoto ? (
+                      <img src={r.authorPhoto} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center shrink-0">
+                        <span className="text-xs font-semibold text-brand-600">{initials}</span>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <p className="text-sm font-medium text-gray-900 truncate">{r.authorName ?? 'Anonimo'}</p>
+                        <div className="flex gap-0.5 shrink-0">
+                          {[1,2,3,4,5].map((s) => (
+                            <Star key={s} className={`w-3 h-3 ${r.rating && s <= r.rating ? 'text-amber-400 fill-amber-400' : 'text-gray-200 fill-gray-200'}`} />
+                          ))}
+                        </div>
+                      </div>
+                      {r.text && <p className="text-xs text-gray-400 truncate">"{r.text}"</p>}
+                    </div>
+                    <span className="text-xs text-gray-400 shrink-0">
+                      {r.publishedAt ? new Date(r.publishedAt).toLocaleDateString('it-IT') : '—'}
                     </span>
                   </div>
                 );
