@@ -191,8 +191,9 @@ def _thank_you_page(site: Site, nps: int) -> str:
   </style>
 </head>
 <body>
+<div style="max-width:420px;width:100%;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.1)">
 {ty_header}
-<div class="card" style="border-radius:0 0 20px 20px;padding-top:32px">
+<div class="card" style="border-radius:0;box-shadow:none;max-width:none;width:100%;padding-top:32px">
   <div class="check">
     <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#fff"
          stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
@@ -202,6 +203,7 @@ def _thank_you_page(site: Site, nps: int) -> str:
   <h1>{ty_title}</h1>
   {cta}
   <p class="powered">Powered by Authwifi</p>
+</div>
 </div>
 </body>
 </html>"""
