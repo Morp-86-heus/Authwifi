@@ -119,7 +119,8 @@ Authwifi/
 │   │   ├── reviews.py                  # Recensioni Google: lista + sync Places API
 │   │   ├── campaigns.py                # CRUD campagne + send-now + stats + preview
 │   │   ├── automations.py              # CRUD automazioni + preview
-│   │   └── billing.py                  # /billing/status, /checkout, /portal, /webhook (Stripe)
+│   │   ├── billing.py                  # /billing/status, /checkout, /portal, /webhook (Stripe)
+│   │   └── public_widget.py            # GET /public/widget/{site_id} — iframe recensioni (no auth)
 │   ├── workers/
 │   │   ├── survey_scheduler.py         # Pubblica su RabbitMQ ogni ora (LATERAL JOIN)
 │   │   ├── survey_sender.py            # Consuma da RabbitMQ, genera JWT, invia email
@@ -592,7 +593,7 @@ openssl rand -hex 32
 
 - [ ] Aggregatore recensioni multi-piattaforma (TripAdvisor, Booking)
 - [ ] Sentiment analysis sui feedback
-- [ ] Widget recensioni embeddabile sul sito della struttura
+- [x] Widget recensioni embeddabile — `GET /public/widget/{site_id}?theme=light|dark` (HTML iframe, no auth); UI embed in SurveyPage con selettore tema, copia codice, anteprima sul sito della struttura
 - [x] Cifratura credenziali Omada e SMTP password (Fernet AES-128) — `services/crypto.py`
 - [ ] Load testing con migliaia di tenant simulati
 
