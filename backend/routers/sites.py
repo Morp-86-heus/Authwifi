@@ -72,6 +72,7 @@ class SiteOut(BaseModel):
     email_body_text: Optional[str] = None
     email_button_text: Optional[str] = None
     email_footer_text: Optional[str] = None
+    google_places_api_key: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -80,6 +81,7 @@ def _out(site: Site) -> dict:
     d = SiteOut.model_validate(site).model_dump(by_alias=True)
     d['omadaOperatorPass'] = None
     d['smtpPassword'] = None
+    d['googlePlacesApiKey'] = None
     return d
 
 
@@ -144,6 +146,7 @@ class UpdateSiteDto(BaseModel):
     email_body_text: Optional[str] = None
     email_button_text: Optional[str] = None
     email_footer_text: Optional[str] = None
+    google_places_api_key: Optional[str] = None
 
 
 @router.post("", status_code=201)
@@ -161,6 +164,8 @@ def create_site(
         data["omada_operator_pass"] = encrypt(data["omada_operator_pass"])
     if "smtp_password" in data:
         data["smtp_password"] = encrypt(data["smtp_password"])
+    if "google_places_api_key" in data:
+        data["google_places_api_key"] = encrypt(data["google_places_api_key"])
     site = Site(**data)
     db.add(site)
     db.commit()
@@ -214,12 +219,15 @@ def update_site(
     _data = dto.model_dump(exclude_none=True)
     _op_pass = _data.pop("omada_operator_pass", None)
     _smtp_pass = _data.pop("smtp_password", None)
+    _places_key = _data.pop("google_places_api_key", None)
     for key, val in _data.items():
         setattr(site, key, val)
     if _op_pass is not None:
         site.omada_operator_pass = encrypt(_op_pass)
     if _smtp_pass is not None:
         site.smtp_password = encrypt(_smtp_pass)
+    if _places_key is not None:
+        site.google_places_api_key = encrypt(_places_key)
     db.commit()
     db.refresh(site)
     from services.cache import cache_delete

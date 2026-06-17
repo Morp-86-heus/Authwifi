@@ -85,6 +85,7 @@ Authwifi/
 │   │                                   #   WifiSession, Consent, Segment, SubSegment,
 │   │                                   #   MacBlacklist, MacWhitelist, ManagerSite
 │   │                                   #   Site include campi SMTP per-sito (7 col) + survey customization (7 col)
+│   │                                   #   + googlePlacesApiKey (cifrata Fernet, per-sito)
 │   ├── auth.py                         # JWT, bcrypt, get_current_manager, require_roles
 │   ├── database.py                     # Engine con pool_size=20, max_overflow=40
 │   ├── alembic/
@@ -102,7 +103,8 @@ Authwifi/
 │   │       ├── 011_campaigns.py            # tabelle campaigns + campaign_recipients + tipi PG
 │   │       ├── 012_automations.py          # tabella automations + tipo automation_trigger
 │   │       ├── 013_stripe.py               # stripeCustomerId + stripeSubscriptionId su tenants
-│   │       └── 014_billing_tenant_fields.py # planExpiresAt + isSuspended su tenants
+│   │       ├── 014_billing_tenant_fields.py # planExpiresAt + isSuspended su tenants
+│   │       └── 015_google_places_api_key.py # googlePlacesApiKey su sites (cifrata Fernet)
 │   ├── routers/
 │   │   ├── auth.py                     # POST /auth/login
 │   │   ├── tenants.py                  # CRUD tenant
@@ -195,7 +197,7 @@ SMTP_FROM_EMAIL="noreply@authwifi.it"
 SMTP_FROM_NAME="Authwifi"
 BASE_URL="https://tuodominio.it"          # usato per generare l'URL della survey nell'email
 # SENDGRID_* rimosso — sostituito da SMTP per-sito (dashboard) o SMTP globale sopra
-GOOGLE_PLACES_API_KEY="AIza..."          # opzionale — per sync recensioni Google
+GOOGLE_PLACES_API_KEY="AIza..."          # fallback globale — preferire la chiave per-sito in dashboard (Impostazioni → Survey)
 # Cifratura dati sensibili nel DB (Fernet AES-128)
 # Generare con: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ENCRYPTION_KEY=""                        # OBBLIGATORIO per cifrare omadaOperatorPass e smtpPassword
@@ -595,6 +597,7 @@ openssl rand -hex 32
 - [ ] Sentiment analysis sui feedback
 - [x] Widget recensioni embeddabile — `GET /public/widget/{site_id}?theme=light|dark` (HTML iframe, no auth); UI embed in SurveyPage con selettore tema, copia codice, anteprima sul sito della struttura
 - [x] Cifratura credenziali Omada e SMTP password (Fernet AES-128) — `services/crypto.py`
+- [x] Google Places API Key spostata da variabile d'ambiente a campo per-sito nel DB (cifrata Fernet) — configurabile dalla dashboard in Impostazioni → Survey; fallback su `GOOGLE_PLACES_API_KEY` env var se non impostata nel sito
 - [ ] Load testing con migliaia di tenant simulati
 
 **Deliverable:** prodotto commercializzabile con pricing a tier.
@@ -621,7 +624,7 @@ openssl rand -hex 32
 | SQLAlchemy sincrono in `async def` | I router `portal.py` sono `async def` ma usano SQLAlchemy sync: ogni query blocca l'event loop. Fix: migrare a `AsyncSession` + `asyncpg`. | Media |
 | Stats senza cache | ~~5-6 `COUNT`/`GROUP BY` su ogni caricamento dashboard, nessuna cache.~~ **RISOLTO** — `stats.py` usa Redis con TTL 5min (`stats:{site_id}:{tenant_id}`). | ~~Media~~ ✅ |
 | `top_countries` illimitato | ~~`stats.py`: `GROUP BY country` su tutta la storia del tenant senza data filter.~~ **RISOLTO** — aggiunto `LIMIT 30`. | ~~Bassa~~ ✅ |
-| Credenziali Omada in chiaro | ~~`omadaOperatorPass` è in chiaro nel DB.~~ **RISOLTO** — `omadaOperatorPass` e `smtpPassword` cifrati con Fernet; decrypt trasparente in portal, workers e send-test. Impostare `ENCRYPTION_KEY` nel `.env`. | ~~Bassa (pre go-live)~~ ✅ |
+| Credenziali Omada in chiaro | ~~`omadaOperatorPass` è in chiaro nel DB.~~ **RISOLTO** — `omadaOperatorPass`, `smtpPassword` e `googlePlacesApiKey` cifrati con Fernet; decrypt trasparente in portal, workers e send-test. Impostare `ENCRYPTION_KEY` nel `.env`. | ~~Bassa (pre go-live)~~ ✅ |
 
 ---
 

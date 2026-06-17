@@ -16,9 +16,10 @@ def _make_external_id(author: str, ts: int) -> str:
     return hashlib.sha256(f"{author}:{ts}".encode()).hexdigest()[:24]
 
 
-def fetch_google_reviews(place_id: str) -> Optional[list[dict]]:
-    if not PLACES_API_KEY:
-        logger.warning("GOOGLE_PLACES_API_KEY non impostata — sync saltata")
+def fetch_google_reviews(place_id: str, api_key: str | None = None) -> Optional[list[dict]]:
+    key = api_key or PLACES_API_KEY
+    if not key:
+        logger.warning("Google Places API key non impostata — sync saltata")
         return None
 
     try:
@@ -28,7 +29,7 @@ def fetch_google_reviews(place_id: str) -> Optional[list[dict]]:
                 "place_id": place_id,
                 "fields": "reviews,rating,user_ratings_total",
                 "language": "it",
-                "key": PLACES_API_KEY,
+                "key": key,
             },
             timeout=10.0,
         )

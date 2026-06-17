@@ -161,6 +161,7 @@ class Site(Base):
     survey_enabled: Mapped[bool] = mapped_column("surveyEnabled", Boolean, default=True, server_default="true")
     survey_hours_delay: Mapped[int] = mapped_column("surveyHoursDelay", Integer, default=24, server_default="24")
     google_place_id: Mapped[str | None] = mapped_column("googlePlaceId", String, nullable=True)
+    google_places_api_key: Mapped[str | None] = mapped_column("googlePlacesApiKey", String, nullable=True)
     survey_title: Mapped[str | None] = mapped_column("surveyTitle", String, nullable=True)
     survey_subtitle: Mapped[str | None] = mapped_column("surveySubtitle", String, nullable=True)
     survey_question_label: Mapped[str | None] = mapped_column("surveyQuestionLabel", String, nullable=True)

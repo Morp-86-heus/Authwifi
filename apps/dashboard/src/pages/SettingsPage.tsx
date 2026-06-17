@@ -30,6 +30,7 @@ interface SiteConfig {
   surveyEnabled: boolean;
   surveyHoursDelay: number;
   googlePlaceId: string | null;
+  googlePlacesApiKey: string | null;
   surveyTitle: string | null;
   surveySubtitle: string | null;
   surveyQuestionLabel: string | null;
@@ -442,6 +443,23 @@ export default function SettingsPage() {
                   Google Place ID Finder
                 </a>
                 {' '}— serve per sincronizzare le recensioni Google nella pagina Survey.
+              </p>
+            </Field>
+
+            <Field label="Google Places API Key">
+              <input
+                type="password"
+                value={config.googlePlacesApiKey ?? ''}
+                onChange={(e) => update({ googlePlacesApiKey: e.target.value || null })}
+                placeholder="AIzaSy..."
+                className={inputCls + ' font-mono text-sm'}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                API Key per sincronizzare le recensioni Google. Ottienila dalla{' '}
+                <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-brand-500 hover:underline">
+                  Google Cloud Console
+                </a>
+                {' '}con il servizio <em>Places API</em> attivato. La chiave è salvata cifrata.
               </p>
             </Field>
 

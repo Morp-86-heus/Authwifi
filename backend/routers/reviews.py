@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_manager, require_roles, can_access_site
 from database import get_db
 from models import ExternalReview, Site
+from services.crypto import decrypt
 from services.google_places import fetch_google_reviews, PLACES_API_KEY
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
@@ -38,11 +39,18 @@ def list_reviews(
     avg_rating = round(sum(ratings) / len(ratings), 1) if ratings else None
     last_sync = max((r.fetched_at for r in rows), default=None)
 
+    # hasApiKey: controlla key per il sito specifico, poi fallback env var
+    _site_key = None
+    if site_id:
+        _site = db.query(Site).filter(Site.id == site_id).first()
+        if _site:
+            _site_key = decrypt(_site.google_places_api_key) if _site.google_places_api_key else None
+
     return {
         "avgRating": avg_rating,
         "total": len(rows),
         "lastSync": last_sync.isoformat() if last_sync else None,
-        "hasApiKey": bool(PLACES_API_KEY),
+        "hasApiKey": bool(_site_key or PLACES_API_KEY),
         "items": [
             {
                 "id": r.id,
@@ -67,12 +75,6 @@ def sync_reviews(
     if not can_access_site(site_id, current):
         raise HTTPException(status_code=403, detail="Accesso non autorizzato")
 
-    if not PLACES_API_KEY:
-        raise HTTPException(
-            status_code=422,
-            detail="GOOGLE_PLACES_API_KEY non configurata. Aggiungila al file .env del server.",
-        )
-
     q = db.query(Site).filter(Site.id == site_id)
     if current["role"] != "superadmin":
         q = q.filter(Site.tenant_id == current["tenant_id"])
@@ -86,7 +88,14 @@ def sync_reviews(
             detail="Google Place ID non configurato per questo sito. Vai in Impostazioni → Survey.",
         )
 
-    reviews = fetch_google_reviews(site.google_place_id)
+    api_key = decrypt(site.google_places_api_key) if site.google_places_api_key else PLACES_API_KEY
+    if not api_key:
+        raise HTTPException(
+            status_code=422,
+            detail="Google Places API Key non configurata. Aggiungila nelle impostazioni del sito.",
+        )
+
+    reviews = fetch_google_reviews(site.google_place_id, api_key=api_key)
     if reviews is None:
         raise HTTPException(status_code=502, detail="Errore nella chiamata a Google Places API.")
 
