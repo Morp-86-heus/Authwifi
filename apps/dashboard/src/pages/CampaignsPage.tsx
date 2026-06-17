@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { RichTextEditor } from '../components/RichTextEditor';
 import {
   Send, Plus, Trash2, GripVertical, Eye, Calendar,
   Type, Link2, Minus, ImageIcon, X, CheckCircle,
@@ -306,16 +307,15 @@ function BlockForm({ block, onChange, primaryColor }: {
   const inp = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400';
 
   if (block.type === 'text') return (
-    <div className="space-y-3">
-      <label className="block text-sm font-medium text-gray-700">Contenuto HTML</label>
-      <textarea
-        rows={10}
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700">Contenuto</label>
+      <RichTextEditor
+        key={block.id}
         value={block.content || ''}
-        onChange={e => onChange({ ...block, content: e.target.value })}
-        placeholder="<p>Testo...</p>"
-        className={inp + ' font-mono text-xs resize-none'}
+        onChange={html => onChange({ ...block, content: html })}
+        minHeight={220}
+        placeholder="Scrivi il testo dell'email..."
       />
-      <p className="text-xs text-gray-400">Supporta HTML semplice: &lt;p&gt;, &lt;strong&gt;, &lt;em&gt;, &lt;br&gt;, &lt;a href&gt;</p>
     </div>
   );
 

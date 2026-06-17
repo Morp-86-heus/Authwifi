@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { RichTextEditor } from '../components/RichTextEditor';
 import { Zap, Plus, Trash2, X, RefreshCw, FileText, GripVertical } from 'lucide-react';
 import api from '../api/client';
 
@@ -171,17 +172,16 @@ function MiniBlockEditor({
           {selected ? (
             <div className="space-y-4">
               {selected.type === 'text' && (
-                <>
-                  <label className="block text-sm font-medium text-gray-700">Contenuto HTML</label>
-                  <textarea
-                    rows={8}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Contenuto</label>
+                  <RichTextEditor
+                    key={selected.id}
                     value={selected.content || ''}
-                    onChange={e => updateBlock({ ...selected, content: e.target.value })}
-                    placeholder="<p>Testo...</p>"
-                    className={inp + ' font-mono text-xs resize-none'}
+                    onChange={html => updateBlock({ ...selected, content: html })}
+                    minHeight={180}
+                    placeholder="Scrivi il testo dell'email..."
                   />
-                  <p className="text-xs text-gray-400">HTML semplice: p, strong, em, br, a href</p>
-                </>
+                </div>
               )}
               {selected.type === 'button' && (
                 <div className="space-y-3">
