@@ -119,6 +119,7 @@ Authwifi/
 │   └── services/
 │       ├── splash.py                   # render_splash(): HTML server-rendered
 │       ├── omada.py                    # OmadaClient: get_session + authorize_client
+│       ├── cache.py                    # Redis cache singleton; cache_get/set/delete; fallback trasparente al DB
 │       ├── email.py                    # send_survey_email() via smtplib; none/starttls/ssl; template moderno responsive; logo sito; BASE_URL per URL assoluti
 │       ├── google_places.py            # fetch_google_reviews() via Places API
 │       └── rabbitmq.py                 # publish_survey() + consume_survey()
@@ -461,6 +462,30 @@ openssl rand -hex 32
 - [x] `apps/dashboard/nginx.conf` — resolver Docker + variabile `$backend` per risoluzione DNS dinamica
 - [x] Testato: rebuild backend → frontend risponde immediatamente senza restart nginx
 
+#### Redis cache splash page — 7 query DB → max 1
+
+> Ogni accesso WiFi caricava la splash page con 7 query DB. Implementato layer di cache Redis con fallback trasparente al DB se Redis non disponibile.
+
+- [x] `services/cache.py` — client Redis singleton (`redis>=5.0`); graceful fallback: se Redis è down le query vanno al DB senza crash
+- [x] `routers/portal.py` — splash handler usa 4 chiavi cache:
+
+| Chiave | TTL | Contenuto |
+|---|---|---|
+| `site_meta:{site_id}` | 5 min | site + tenant + social + config Omada |
+| `segments:{tenant_id}` | 5 min | segmenti + sotto-segmenti attivi |
+| `blacklist_macs:{site_id}` | 2 min | set MAC bloccati |
+| `whitelist_macs:{site_id}` | 2 min | set MAC bypass |
+
+  Solo il **returning guest** rimane in DB (dato per-MAC, non condivisibile in cache).  
+  **Risultato:** da 7 query/richiesta a 1 con cache calda; 0 su hit completo.
+
+- [x] Invalidazione automatica wired nei router:
+  - `sites.py` PATCH → `cache_delete("site_meta:{site_id}")`
+  - `segments.py` create/update/delete (segmenti e sotto-segmenti) → `cache_delete("segments:{tenant_id}")`
+  - `whitelist.py` add/remove → `cache_delete("whitelist_macs:{site_id}")`
+  - `blacklist.py` add/remove → `cache_delete("blacklist_macs:{site_id}")`
+- [x] `requirements.txt` — aggiunto `redis>=5.0.0`, rimosso `sendgrid` (non più usato)
+
 ---
 
 ### Fase 3 — Marketing automation (4-6 settimane) ⏳ DA IMPLEMENTARE
@@ -507,7 +532,7 @@ openssl rand -hex 32
 
 | Voce | Dettaglio | Priorità |
 |---|---|---|
-| Redis inutilizzato | Connesso ma mai usato. La splash page fa 7 query DB per ogni load. Con cache Redis si scende a 0. | Alta |
+| Redis inutilizzato | ~~Connesso ma mai usato. La splash page fa 7 query DB per ogni load. Con cache Redis si scende a 0.~~ **RISOLTO** — vedi Fix infrastrutturali. | ~~Alta~~ ✅ |
 | SQLAlchemy sincrono in `async def` | I router `portal.py` sono `async def` ma usano SQLAlchemy sync: ogni query blocca l'event loop. Fix: migrare a `AsyncSession` + `asyncpg`. | Media |
 | Stats senza cache | 5-6 `COUNT`/`GROUP BY` su ogni caricamento dashboard, nessuna cache. Con Redis TTL 5min sparisce il carico. | Media |
 | `top_countries` illimitato | `stats.py`: `GROUP BY country` su tutta la storia del tenant senza data filter. Aggiungere LIMIT o finestra temporale. | Bassa |
