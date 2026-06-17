@@ -900,11 +900,11 @@ function SurveyPreview({ config }: { config: SiteConfig }) {
 
         {/* Body */}
         <div className="px-6 py-6">
-          <h2 className="font-bold text-gray-900 text-base mb-1.5">{title}</h2>
-          <p className="text-sm text-gray-500 mb-5 leading-relaxed">{subtitle}</p>
+          <h2 className="font-bold text-gray-900 text-base mb-1.5 text-center">{title}</h2>
+          <p className="text-sm text-gray-500 mb-5 leading-relaxed text-center">{subtitle}</p>
 
           {/* Scores */}
-          <p className="text-xs font-semibold text-gray-700 mb-2">{qLabel}</p>
+          <p className="text-xs font-semibold text-gray-700 mb-2 text-center">{qLabel}</p>
           <div className="flex gap-1 flex-wrap justify-center mb-1">
             {Array.from({ length: 11 }, (_, i) => (
               <button
@@ -1018,11 +1018,11 @@ function EmailPreview({ config }: { config: SiteConfig }) {
           </div>
         )}
         <div style={{ padding: '24px 28px 0' }}>
-          <h2 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: 700, color: '#111' }}>Ciao Ospite,</h2>
-          <p style={{ margin: '0 0 20px', fontSize: '13px', color: '#555', lineHeight: 1.65 }}
+          <h2 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: 700, color: '#111', textAlign: 'center' }}>Ciao Ospite,</h2>
+          <p style={{ margin: '0 0 20px', fontSize: '13px', color: '#555', lineHeight: 1.65, textAlign: 'center' }}
              dangerouslySetInnerHTML={{ __html: bodyText }} />
           <div style={{ background: '#f7f8fa', borderRadius: '10px', padding: '14px 14px 10px', marginBottom: '20px' }}>
-            <p style={{ margin: '0 0 8px', fontSize: '9px', fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+            <p style={{ margin: '0 0 8px', fontSize: '9px', fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.8px', textAlign: 'center' }}>
               Da 0 a 10, quanto ci consiglieresti?
             </p>
             <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap' }}>

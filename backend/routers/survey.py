@@ -90,9 +90,9 @@ def _survey_page(site: Site, token: str, error: str = "") -> str:
     .card-header{{padding:24px 32px;text-align:center;border-bottom:1px solid #f0f0f0}}
     .card-header img{{max-height:64px;max-width:200px;object-fit:contain}}
     .card-body{{padding:32px 32px 40px}}
-    h1{{font-size:1.25rem;font-weight:700;color:#111;margin-bottom:8px}}
-    .sub{{font-size:.9rem;color:#777;margin-bottom:28px;line-height:1.5}}
-    .label{{font-size:.85rem;font-weight:600;color:#333;margin-bottom:10px}}
+    h1{{font-size:1.25rem;font-weight:700;color:#111;margin-bottom:8px;text-align:center}}
+    .sub{{font-size:.9rem;color:#777;margin-bottom:28px;line-height:1.5;text-align:center}}
+    .label{{font-size:.85rem;font-weight:600;color:#333;margin-bottom:10px;text-align:center}}
     .scores{{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:8px}}
     .hint{{display:flex;justify-content:space-between;font-size:.72rem;color:#aaa;margin-bottom:24px}}
     textarea{{width:100%;border:1.5px solid #e0e0e0;border-radius:10px;padding:12px;
