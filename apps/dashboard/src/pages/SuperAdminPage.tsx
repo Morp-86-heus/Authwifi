@@ -214,7 +214,7 @@ export default function SuperAdminPage() {
             Seleziona un tenant per vedere i dettagli
           </div>
         ) : (
-          <div className="max-w-3xl space-y-6">
+          <div className="w-full space-y-6">
 
             {/* Tenant header card */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">

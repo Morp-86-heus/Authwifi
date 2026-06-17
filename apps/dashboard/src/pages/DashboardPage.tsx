@@ -75,7 +75,7 @@ export default function DashboardPage() {
   const total = stats?.topCountries.reduce((s, x) => s + x.count, 0) ?? 0;
 
   return (
-    <div className="p-8 max-w-6xl space-y-8">
+    <div className="p-8 w-full space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-sm text-gray-500 mt-1">Statistiche del tuo portale WiFi</p>
