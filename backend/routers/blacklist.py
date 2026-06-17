@@ -53,6 +53,8 @@ def add_to_blacklist(
     db.add(entry)
     db.commit()
     db.refresh(entry)
+    from services.cache import cache_delete
+    cache_delete(f"blacklist_macs:{site_id}")
     return {"id": entry.id, "macAddress": entry.mac_address, "reason": entry.reason, "createdAt": entry.created_at}
 
 
@@ -70,3 +72,5 @@ def remove_from_blacklist(
         raise HTTPException(status_code=404, detail="Voce non trovata")
     db.delete(entry)
     db.commit()
+    from services.cache import cache_delete
+    cache_delete(f"blacklist_macs:{site_id}")

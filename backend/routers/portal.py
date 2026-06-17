@@ -59,19 +59,53 @@ async def splash(
     redirectUrl: str = Query(default=""),
     db: Session = Depends(get_db),
 ):
-    db_site = db.query(Site).filter(Site.id == siteId).first()
-    if not db_site:
-        raise HTTPException(status_code=404, detail="Sito non trovato")
+    from services.cache import cache_get, cache_set, TTL_SITE, TTL_LISTS
 
-    tenant = db_site.tenant
+    # ── 1. Site meta (5 min cache) ──────────────────────────────────────────
+    site_meta = cache_get(f"site_meta:{siteId}")
+    if site_meta is None:
+        db_site = db.query(Site).filter(Site.id == siteId).first()
+        if not db_site:
+            raise HTTPException(status_code=404, detail="Sito non trovato")
+        tenant = db_site.tenant
+        site_meta = {
+            "tenant_id":            db_site.tenant_id,
+            "site_name":            db_site.name,
+            "tenant_name":          tenant.name,
+            "logo_url":             db_site.logo_url or tenant.logo_url,
+            "background_image_url": db_site.background_image_url,
+            "hero_image_url":       db_site.hero_image_url,
+            "primary_color":        db_site.primary_color,
+            "accent_color":         db_site.accent_color,
+            "welcome_title":        db_site.welcome_title,
+            "welcome_text":         db_site.welcome_text,
+            "login_methods":        [m.strip() for m in db_site.login_methods.split(",")],
+            "social": {
+                "facebook":    db_site.facebook_url,
+                "instagram":   db_site.instagram_url,
+                "tripadvisor": db_site.tripadvisor_url,
+                "google":      db_site.google_review_url,
+                "booking":     db_site.booking_url,
+                "twitter":     db_site.twitter_url,
+            },
+            "_omada_controller_url": db_site.omada_controller_url,
+            "_omada_omadac_id":      db_site.omada_omadac_id,
+            "_omada_site_id":        db_site.omada_site_id,
+            "_omada_operator_user":  db_site.omada_operator_user,
+            "_omada_operator_pass":  db_site.omada_operator_pass,
+        }
+        cache_set(f"site_meta:{siteId}", site_meta, TTL_SITE)
 
-    # Blacklist check — blocca accesso
+    tenant_id = site_meta["tenant_id"]
+
+    # ── 2. Blacklist check (2 min cache) ────────────────────────────────────
     if clientMac:
-        bl = db.query(MacBlacklist).filter(
-            MacBlacklist.site_id == db_site.id,
-            MacBlacklist.mac_address == clientMac.upper(),
-        ).first()
-        if bl:
+        bl_macs = cache_get(f"blacklist_macs:{siteId}")
+        if bl_macs is None:
+            bl_macs = [r.mac_address for r in db.query(MacBlacklist).filter(
+                MacBlacklist.site_id == siteId).all()]
+            cache_set(f"blacklist_macs:{siteId}", bl_macs, TTL_LISTS)
+        if clientMac.upper() in bl_macs:
             return HTMLResponse(f"""<!DOCTYPE html>
 <html lang="it"><head><meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
@@ -88,35 +122,35 @@ p{{font-size:.9rem;color:#666;line-height:1.5}}</style>
 <p>Il tuo dispositivo non è autorizzato a connettersi a questa rete WiFi.<br/>Contatta la reception per assistenza.</p>
 </div></body></html>""", status_code=403)
 
-    # Whitelist bypass — autorizza direttamente senza splash
+    # ── 3. Whitelist bypass (2 min cache) ───────────────────────────────────
     if clientMac:
-        wl = db.query(MacWhitelist).filter(
-            MacWhitelist.site_id == db_site.id,
-            MacWhitelist.mac_address == clientMac.upper(),
-        ).first()
-        if wl:
-            # Upsert guest anonimo
+        wl_macs = cache_get(f"whitelist_macs:{siteId}")
+        if wl_macs is None:
+            wl_macs = [r.mac_address for r in db.query(MacWhitelist).filter(
+                MacWhitelist.site_id == siteId).all()]
+            cache_set(f"whitelist_macs:{siteId}", wl_macs, TTL_LISTS)
+        if clientMac.upper() in wl_macs:
             guest = db.query(Guest).filter(
                 Guest.mac_address == clientMac,
-                Guest.tenant_id == db_site.tenant_id,
+                Guest.tenant_id == tenant_id,
             ).first()
             if not guest:
-                guest = Guest(tenant_id=db_site.tenant_id, mac_address=clientMac)
+                guest = Guest(tenant_id=tenant_id, mac_address=clientMac)
                 db.add(guest)
                 db.flush()
             db.add(WifiSession(
-                guest_id=guest.id, site_id=db_site.id,
+                guest_id=guest.id, site_id=siteId,
                 mac_address=clientMac, ap_mac=apMac or None, ssid_name=ssidName or None,
             ))
             db.commit()
-            if all([db_site.omada_controller_url, db_site.omada_omadac_id, db_site.omada_site_id]):
+            if all([site_meta["_omada_controller_url"], site_meta["_omada_omadac_id"], site_meta["_omada_site_id"]]):
                 try:
                     await omada_client.authorize_client(
-                        controller_url=db_site.omada_controller_url,
-                        omadac_id=db_site.omada_omadac_id,
-                        site_id=db_site.omada_site_id,
-                        operator_user=db_site.omada_operator_user,
-                        operator_pass=db_site.omada_operator_pass,
+                        controller_url=site_meta["_omada_controller_url"],
+                        omadac_id=site_meta["_omada_omadac_id"],
+                        site_id=site_meta["_omada_site_id"],
+                        operator_user=site_meta["_omada_operator_user"],
+                        operator_pass=site_meta["_omada_operator_pass"],
                         client_mac=clientMac,
                         ap_mac=apMac,
                         ssid_name=ssidName,
@@ -124,81 +158,79 @@ p{{font-size:.9rem;color:#666;line-height:1.5}}</style>
                     )
                 except Exception as e:
                     logger.error(f"Whitelist Omada auth error: {e}")
-            dest = redirectUrl if redirectUrl else f"/portal/welcome?siteId={db_site.id}"
+            dest = redirectUrl if redirectUrl else f"/portal/welcome?siteId={siteId}"
             return RedirectResponse(dest, status_code=302)
 
+    # ── 4. Returning guest (sempre DB — per MAC) ────────────────────────────
     returning_guest = None
     if clientMac:
         rg = db.query(Guest).filter(
             Guest.mac_address == clientMac,
-            Guest.tenant_id == db_site.tenant_id,
+            Guest.tenant_id == tenant_id,
             Guest.deleted_at.is_(None),
         ).first()
         if rg:
             returning_guest = {
                 "first_name": rg.first_name,
-                "last_name": rg.last_name,
-                "email": rg.email,
+                "last_name":  rg.last_name,
+                "email":      rg.email,
             }
 
-    # Load active segments + sub-segments in 2 queries (no N+1)
-    active_segments = db.query(Segment).filter(
-        Segment.tenant_id == db_site.tenant_id,
-        Segment.enabled == True,
-    ).order_by(Segment.priority, Segment.name).all()
-    seg_ids = [s.id for s in active_segments]
-    if seg_ids:
-        all_subs = db.query(SubSegment).filter(
-            SubSegment.segment_id.in_(seg_ids),
-            SubSegment.enabled == True,
-        ).order_by(SubSegment.name).all()
-        subs_by_seg: dict = {}
-        for s in all_subs:
-            subs_by_seg.setdefault(s.segment_id, []).append(s)
-    else:
-        subs_by_seg = {}
-    segments_data = [
-        {
-            "id": seg.id,
-            "name": seg.name,
-            "sub_segments": [
-                {"id": s.id, "name": s.text_it or s.name}
-                for s in subs_by_seg.get(seg.id, [])
-            ],
-        }
-        for seg in active_segments
-    ]
+    # ── 5. Segments (5 min cache) ────────────────────────────────────────────
+    segments_data = cache_get(f"segments:{tenant_id}")
+    if segments_data is None:
+        active_segments = db.query(Segment).filter(
+            Segment.tenant_id == tenant_id,
+            Segment.enabled == True,
+        ).order_by(Segment.priority, Segment.name).all()
+        seg_ids = [s.id for s in active_segments]
+        if seg_ids:
+            all_subs = db.query(SubSegment).filter(
+                SubSegment.segment_id.in_(seg_ids),
+                SubSegment.enabled == True,
+            ).order_by(SubSegment.name).all()
+            subs_by_seg: dict = {}
+            for s in all_subs:
+                subs_by_seg.setdefault(s.segment_id, []).append(s)
+        else:
+            subs_by_seg = {}
+        segments_data = [
+            {
+                "id": seg.id,
+                "name": seg.name,
+                "sub_segments": [
+                    {"id": s.id, "name": s.text_it or s.name}
+                    for s in subs_by_seg.get(seg.id, [])
+                ],
+            }
+            for seg in active_segments
+        ]
+        cache_set(f"segments:{tenant_id}", segments_data, TTL_SITE)
 
     html = render_splash({
-        "site_name": db_site.name,
-        "tenant_name": tenant.name,
-        "logo_url": db_site.logo_url or tenant.logo_url,
-        "background_image_url": db_site.background_image_url,
-        "hero_image_url": db_site.hero_image_url,
-        "primary_color": db_site.primary_color,
-        "accent_color": db_site.accent_color,
-        "welcome_title": db_site.welcome_title,
-        "welcome_text": db_site.welcome_text,
-        "login_methods": [m.strip() for m in db_site.login_methods.split(",")],
-        "site_id": siteId,
-        "client_mac": clientMac,
-        "ap_mac": apMac,
-        "ssid_name": ssidName,
-        "radio_id": radioId,
-        "omada_site_id": site,
-        "redirect_url": redirectUrl,
-        "returning_guest": returning_guest,
-        "segments": segments_data,
-        "social": {
-            "facebook":   db_site.facebook_url,
-            "instagram":  db_site.instagram_url,
-            "tripadvisor": db_site.tripadvisor_url,
-            "google":     db_site.google_review_url,
-            "booking":    db_site.booking_url,
-            "twitter":    db_site.twitter_url,
-        },
+        "site_name":            site_meta["site_name"],
+        "tenant_name":          site_meta["tenant_name"],
+        "logo_url":             site_meta["logo_url"],
+        "background_image_url": site_meta["background_image_url"],
+        "hero_image_url":       site_meta["hero_image_url"],
+        "primary_color":        site_meta["primary_color"],
+        "accent_color":         site_meta["accent_color"],
+        "welcome_title":        site_meta["welcome_title"],
+        "welcome_text":         site_meta["welcome_text"],
+        "login_methods":        site_meta["login_methods"],
+        "site_id":              siteId,
+        "client_mac":           clientMac,
+        "ap_mac":               apMac,
+        "ssid_name":            ssidName,
+        "radio_id":             radioId,
+        "omada_site_id":        site,
+        "redirect_url":         redirectUrl,
+        "returning_guest":      returning_guest,
+        "segments":             segments_data,
+        "social":               site_meta["social"],
     })
     return HTMLResponse(content=html)
+
 
 
 @router.post("/login")

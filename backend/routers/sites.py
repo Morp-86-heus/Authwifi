@@ -207,6 +207,8 @@ def update_site(
         setattr(site, key, val)
     db.commit()
     db.refresh(site)
+    from services.cache import cache_delete
+    cache_delete(f"site_meta:{site_id}")
     return _out(site)
 
 

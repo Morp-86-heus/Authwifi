@@ -68,6 +68,8 @@ def create_segment(
     db.add(seg)
     db.commit()
     db.refresh(seg)
+    from services.cache import cache_delete
+    cache_delete(f'segments:{current["tenant_id"]}')
     return {"id": seg.id, "name": seg.name, "priority": seg.priority, "enabled": seg.enabled, "createdAt": seg.created_at}
 
 
@@ -86,6 +88,8 @@ def update_segment(
     for k, v in body.model_dump().items():
         setattr(seg, k, v)
     db.commit()
+    from services.cache import cache_delete
+    cache_delete(f'segments:{current["tenant_id"]}')
     return {"id": seg.id, "name": seg.name, "priority": seg.priority, "enabled": seg.enabled}
 
 
@@ -111,6 +115,8 @@ def delete_segment(
     )
     db.delete(seg)
     db.commit()
+    from services.cache import cache_delete
+    cache_delete(f'segments:{current["tenant_id"]}')
 
 
 # ─── Sub-segments ─────────────────────────────────────────────────────────────
@@ -186,6 +192,8 @@ def create_sub_segment(
     db.add(sub)
     db.commit()
     db.refresh(sub)
+    from services.cache import cache_delete
+    cache_delete(f'segments:{current["tenant_id"]}')
     return {"id": sub.id, "name": sub.name, "segmentId": sub.segment_id}
 
 
@@ -210,6 +218,8 @@ def update_sub_segment(
     for k, v in body.model_dump().items():
         setattr(sub, k, v)
     db.commit()
+    from services.cache import cache_delete
+    cache_delete(f'segments:{current["tenant_id"]}')
     return {"id": sub.id, "name": sub.name}
 
 
@@ -230,3 +240,5 @@ def delete_sub_segment(
     )
     db.delete(sub)
     db.commit()
+    from services.cache import cache_delete
+    cache_delete(f'segments:{current["tenant_id"]}')

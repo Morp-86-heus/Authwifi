@@ -62,6 +62,8 @@ def add_to_whitelist(
     db.add(entry)
     db.commit()
     db.refresh(entry)
+    from services.cache import cache_delete
+    cache_delete(f"whitelist_macs:{site_id}")
     return {"id": entry.id, "macAddress": entry.mac_address, "label": entry.label, "createdAt": entry.created_at}
 
 
@@ -82,3 +84,5 @@ def remove_from_whitelist(
         raise HTTPException(status_code=404, detail="Voce non trovata")
     db.delete(entry)
     db.commit()
+    from services.cache import cache_delete
+    cache_delete(f"whitelist_macs:{site_id}")
