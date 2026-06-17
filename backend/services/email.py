@@ -117,7 +117,7 @@ def _build_survey_html(
             '<tr><td class="eh" style="background:#ffffff;padding:24px 40px;'
             'text-align:center;border-bottom:1px solid #f0f0f0">'
             f'<img src="{abs_logo}" alt="{sn_safe}"'
-            ' style="max-height:60px;max-width:200px;object-fit:contain"/>'
+            ' style="max-height:120px;max-width:320px;object-fit:contain"/>'
             '</td></tr>'
         )
     else:

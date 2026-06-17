@@ -88,7 +88,7 @@ def _survey_page(site: Site, token: str, error: str = "") -> str:
     .card{{background:#fff;border-radius:20px;box-shadow:0 8px 40px rgba(0,0,0,.1);
            max-width:480px;width:100%;padding:0;overflow:hidden}}
     .card-header{{padding:24px 32px;text-align:center;border-bottom:1px solid #f0f0f0}}
-    .card-header img{{max-height:64px;max-width:200px;object-fit:contain}}
+    .card-header img{{max-height:120px;max-width:320px;object-fit:contain}}
     .card-body{{padding:32px 32px 40px}}
     h1{{font-size:1.25rem;font-weight:700;color:#111;margin-bottom:8px;text-align:center}}
     .sub{{font-size:.9rem;color:#777;margin-bottom:28px;line-height:1.5;text-align:center}}
@@ -145,7 +145,7 @@ def _thank_you_page(site: Site, nps: int) -> str:
             f'<div style="background:#fff;padding:24px 32px;text-align:center;'
             f'border-bottom:1px solid #f0f0f0;border-radius:20px 20px 0 0">'
             f'<img src="{_esc(site.logo_url)}" alt="{site_name}" '
-            f'style="max-height:64px;max-width:200px;object-fit:contain"/></div>'
+            f'style="max-height:120px;max-width:320px;object-fit:contain"/></div>'
         )
     else:
         ty_header = (

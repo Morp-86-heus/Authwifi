@@ -890,7 +890,7 @@ function SurveyPreview({ config }: { config: SiteConfig }) {
         {/* Header */}
         {config.logoUrl ? (
           <div className="flex items-center justify-center px-6 py-4 border-b border-gray-100 bg-white">
-            <img src={config.logoUrl} alt="logo" className="max-h-16 max-w-48 object-contain mx-auto block" />
+            <img src={config.logoUrl} alt="logo" className="max-h-28 max-w-xs object-contain mx-auto block" />
           </div>
         ) : (
           <div className="px-6 py-4 text-center" style={{ background: primary }}>
@@ -1010,7 +1010,7 @@ function EmailPreview({ config }: { config: SiteConfig }) {
       <div style={{ maxWidth: '460px', margin: '0 auto', background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
         {config.logoUrl ? (
           <div style={{ background: '#fff', padding: '18px 28px', textAlign: 'center', borderBottom: '1px solid #f0f0f0' }}>
-            <img src={config.logoUrl} alt="logo" style={{ maxHeight: '64px', maxWidth: '200px', objectFit: 'contain', display: 'block', margin: '0 auto' }} />
+            <img src={config.logoUrl} alt="logo" style={{ maxHeight: '120px', maxWidth: '320px', objectFit: 'contain', display: 'block', margin: '0 auto' }} />
           </div>
         ) : (
           <div style={{ background: primary, padding: '20px 28px', textAlign: 'center' }}>
