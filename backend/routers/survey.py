@@ -68,9 +68,9 @@ def _survey_page(site: Site, token: str, error: str = "") -> str:
     scores = "".join(
         f'<label style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer">'
         f'<input type="radio" name="nps_score" value="{i}" required style="display:none" id="s{i}"/>'
-        f'<span class="score-btn" data-v="{i}" style="width:36px;height:36px;border-radius:8px;'
+        f'<span class="score-btn" data-v="{i}" style="width:30px;height:30px;border-radius:6px;'
         f'border:2px solid #e0e0e0;display:flex;align-items:center;justify-content:center;'
-        f'font-size:.85rem;font-weight:600;color:#555;cursor:pointer;transition:all .15s">{i}</span>'
+        f'font-size:.78rem;font-weight:600;color:#555;cursor:pointer;transition:all .15s">{i}</span>'
         f'</label>'
         for i in range(11)
     )
@@ -93,7 +93,7 @@ def _survey_page(site: Site, token: str, error: str = "") -> str:
     h1{{font-size:1.25rem;font-weight:700;color:#111;margin-bottom:8px;text-align:center}}
     .sub{{font-size:.9rem;color:#777;margin-bottom:28px;line-height:1.5;text-align:center}}
     .label{{font-size:.85rem;font-weight:600;color:#333;margin-bottom:10px;text-align:center}}
-    .scores{{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:8px}}
+    .scores{{display:flex;gap:4px;flex-wrap:nowrap;justify-content:center;margin-bottom:8px}}
     .hint{{display:flex;justify-content:space-between;font-size:.72rem;color:#aaa;margin-bottom:24px}}
     textarea{{width:100%;border:1.5px solid #e0e0e0;border-radius:10px;padding:12px;
               font-size:.9rem;font-family:inherit;resize:vertical;min-height:80px;outline:none;

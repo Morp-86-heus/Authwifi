@@ -905,13 +905,13 @@ function SurveyPreview({ config }: { config: SiteConfig }) {
 
           {/* Scores */}
           <p className="text-xs font-semibold text-gray-700 mb-2 text-center">{qLabel}</p>
-          <div className="flex gap-1 flex-wrap justify-center mb-1">
+          <div className="flex gap-0.5 justify-center mb-1">
             {Array.from({ length: 11 }, (_, i) => (
               <button
                 key={i}
                 type="button"
                 onClick={() => setSelectedScore(i)}
-                className="w-8 h-8 rounded-lg text-xs font-semibold transition-all"
+                className="flex-1 h-7 min-w-0 rounded-md text-xs font-semibold transition-all"
                 style={{
                   border: selectedScore === i ? `2px solid ${primary}` : '2px solid #e0e0e0',
                   background: selectedScore === i ? primary : '#fff',
