@@ -617,8 +617,8 @@ openssl rand -hex 32
 |---|---|---|
 | Redis inutilizzato | ~~Connesso ma mai usato. La splash page fa 7 query DB per ogni load. Con cache Redis si scende a 0.~~ **RISOLTO** — vedi Fix infrastrutturali. | ~~Alta~~ ✅ |
 | SQLAlchemy sincrono in `async def` | I router `portal.py` sono `async def` ma usano SQLAlchemy sync: ogni query blocca l'event loop. Fix: migrare a `AsyncSession` + `asyncpg`. | Media |
-| Stats senza cache | 5-6 `COUNT`/`GROUP BY` su ogni caricamento dashboard, nessuna cache. Con Redis TTL 5min sparisce il carico. | Media |
-| `top_countries` illimitato | `stats.py`: `GROUP BY country` su tutta la storia del tenant senza data filter. Aggiungere LIMIT o finestra temporale. | Bassa |
+| Stats senza cache | ~~5-6 `COUNT`/`GROUP BY` su ogni caricamento dashboard, nessuna cache.~~ **RISOLTO** — `stats.py` usa Redis con TTL 5min (`stats:{site_id}:{tenant_id}`). | ~~Media~~ ✅ |
+| `top_countries` illimitato | ~~`stats.py`: `GROUP BY country` su tutta la storia del tenant senza data filter.~~ **RISOLTO** — aggiunto `LIMIT 30`. | ~~Bassa~~ ✅ |
 | Credenziali Omada in chiaro | ~~`omadaOperatorPass` è in chiaro nel DB.~~ **RISOLTO** — `omadaOperatorPass` e `smtpPassword` cifrati con Fernet; decrypt trasparente in portal, workers e send-test. Impostare `ENCRYPTION_KEY` nel `.env`. | ~~Bassa (pre go-live)~~ ✅ |
 
 ---
