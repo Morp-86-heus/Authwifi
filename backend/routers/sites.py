@@ -67,6 +67,10 @@ class SiteOut(BaseModel):
     smtp_password: Optional[str] = None
     smtp_from_email: Optional[str] = None
     smtp_from_name: Optional[str] = None
+    email_subject: Optional[str] = None
+    email_body_text: Optional[str] = None
+    email_button_text: Optional[str] = None
+    email_footer_text: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -132,6 +136,10 @@ class UpdateSiteDto(BaseModel):
     smtp_password: Optional[str] = None
     smtp_from_email: Optional[str] = None
     smtp_from_name: Optional[str] = None
+    email_subject: Optional[str] = None
+    email_body_text: Optional[str] = None
+    email_button_text: Optional[str] = None
+    email_footer_text: Optional[str] = None
 
 
 @router.post("", status_code=201)

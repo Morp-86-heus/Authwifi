@@ -61,6 +61,15 @@ def _branding_from_site(site: Site) -> dict:
     }
 
 
+def _email_config_from_site(site: Site) -> dict:
+    return {
+        "subject":     site.email_subject,
+        "body_text":   site.email_body_text,
+        "button_text": site.email_button_text,
+        "footer_text": site.email_footer_text,
+    }
+
+
 def handle_message(ch, method, _props, body):
     try:
         msg = json.loads(body)
@@ -95,6 +104,7 @@ def handle_message(ch, method, _props, body):
         site = db.query(Site).filter(Site.id == site_id).first()
         smtp_config = _smtp_config_from_site(site)
         site_branding = _branding_from_site(site) if site else {}
+        email_config  = _email_config_from_site(site) if site else {}
 
         sr = SurveyResponse(
             id=new_id(),
@@ -106,7 +116,7 @@ def handle_message(ch, method, _props, body):
         db.add(sr)
         db.commit()
 
-    ok = send_survey_email(email, first_name, survey_url, site_name, smtp_config, site_branding)
+    ok = send_survey_email(email, first_name, survey_url, site_name, smtp_config, site_branding, email_config)
     if ok:
         logger.info("Email inviata a %s", email)
         ch.basic_ack(delivery_tag=method.delivery_tag)

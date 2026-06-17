@@ -199,6 +199,7 @@ def send_test_email(
     site_name = "Authwifi"
     smtp_config = None
     site_branding = {}
+    email_config = {}
 
     if site_id:
         site_obj = db.query(Site).filter(
@@ -210,6 +211,12 @@ def send_test_email(
             site_branding = {
                 "logo_url":      site_obj.logo_url,
                 "primary_color": site_obj.primary_color or "#0055ff",
+            }
+            email_config = {
+                "subject":     site_obj.email_subject,
+                "body_text":   site_obj.email_body_text,
+                "button_text": site_obj.email_button_text,
+                "footer_text": site_obj.email_footer_text,
             }
             if site_obj.smtp_host:
                 smtp_config = {
@@ -228,7 +235,7 @@ def send_test_email(
     )
     survey_url = f"{os.getenv('BASE_URL', 'http://localhost:8000')}/survey/{token}"
 
-    ok = send_survey_email(manager.email, manager.first_name or "Manager", survey_url, site_name, smtp_config, site_branding)
+    ok = send_survey_email(manager.email, manager.first_name or "Manager", survey_url, site_name, smtp_config, site_branding, email_config)
     if ok:
         return {"success": True, "sentTo": manager.email}
     raise HTTPException(status_code=500, detail="Errore invio. Verifica la configurazione SMTP nei log del server.")

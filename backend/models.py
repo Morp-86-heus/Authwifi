@@ -166,6 +166,10 @@ class Site(Base):
     survey_button_text: Mapped[str | None] = mapped_column("surveyButtonText", String, nullable=True)
     survey_thank_you_title: Mapped[str | None] = mapped_column("surveyThankYouTitle", String, nullable=True)
     survey_show_comment: Mapped[bool] = mapped_column("surveyShowComment", Boolean, default=True, server_default="true")
+    email_subject: Mapped[str | None] = mapped_column("emailSubject", String, nullable=True)
+    email_body_text: Mapped[str | None] = mapped_column("emailBodyText", String, nullable=True)
+    email_button_text: Mapped[str | None] = mapped_column("emailButtonText", String, nullable=True)
+    email_footer_text: Mapped[str | None] = mapped_column("emailFooterText", String, nullable=True)
 
     smtp_host: Mapped[str | None] = mapped_column("smtpHost", String, nullable=True)
     smtp_port: Mapped[int] = mapped_column("smtpPort", Integer, default=587, server_default="587")

@@ -44,6 +44,10 @@ interface SiteConfig {
   smtpPassword: string | null;
   smtpFromEmail: string | null;
   smtpFromName: string | null;
+  emailSubject: string | null;
+  emailBodyText: string | null;
+  emailButtonText: string | null;
+  emailFooterText: string | null;
 }
 
 type Tab = 'branding' | 'omada' | 'login' | 'whitelist' | 'blacklist' | 'social' | 'survey' | 'smtp';
@@ -517,6 +521,60 @@ export default function SettingsPage() {
             <SurveyPreview config={config} />
           </Card>
 
+          <Card title="Personalizzazione email">
+            <p className="text-sm text-gray-500 -mt-2 mb-4">
+              Testi dell'email survey inviata all'ospite. Usa{' '}
+              <code className="bg-gray-100 px-1 rounded text-xs">{'{nome_sito}'}</code> e{' '}
+              <code className="bg-gray-100 px-1 rounded text-xs">{'{nome_ospite}'}</code> come segnaposto.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Oggetto email</label>
+                <input
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                  value={config.emailSubject || ''}
+                  onChange={e => setConfig(c => c ? { ...c, emailSubject: e.target.value || null } : c)}
+                  placeholder="Come è stata la tua esperienza da {nome_sito}?"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Testo corpo</label>
+                <textarea
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none"
+                  rows={2}
+                  value={config.emailBodyText || ''}
+                  onChange={e => setConfig(c => c ? { ...c, emailBodyText: e.target.value || null } : c)}
+                  placeholder="Grazie per aver visitato {nome_sito}. Ci piacerebbe sapere come è stata la tua esperienza — bastano 30 secondi."
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Testo bottone CTA</label>
+                <input
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                  value={config.emailButtonText || ''}
+                  onChange={e => setConfig(c => c ? { ...c, emailButtonText: e.target.value || null } : c)}
+                  placeholder="Lascia la tua valutazione"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Testo footer</label>
+                <input
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                  value={config.emailFooterText || ''}
+                  onChange={e => setConfig(c => c ? { ...c, emailFooterText: e.target.value || null } : c)}
+                  placeholder="Hai ricevuto questa email perché ti sei connesso al WiFi di {nome_sito}."
+                />
+              </div>
+            </div>
+          </Card>
+
+          <Card title="Anteprima email">
+            <p className="text-sm text-gray-500 -mt-2 mb-4">
+              Anteprima di come apparirà l'email all'ospite.
+            </p>
+            <EmailPreview config={config} />
+          </Card>
+
           <Card title="Email di test">
             <p className="text-sm text-gray-500 -mt-2 mb-3">
               Invia una email survey di prova al tuo indirizzo per verificare la configurazione SMTP.
@@ -925,6 +983,69 @@ function SurveyPreview({ config }: { config: SiteConfig }) {
 
         <div className="text-center pb-3">
           <span className="text-xs text-gray-300">Powered by Authwifi</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Email Preview ───────────────────────────────────────────────────────────
+
+function EmailPreview({ config }: { config: SiteConfig }) {
+  const primary  = config.primaryColor || '#0055ff';
+  const siteName = config.name || 'La struttura';
+
+  const t = (val: string | null, def: string) =>
+    (val || def).replace('{nome_sito}', siteName).replace('{nome_ospite}', 'Ospite');
+
+  const bodyText   = t(config.emailBodyText,   `Grazie per aver visitato ${siteName}. Ci piacerebbe sapere come è stata la tua esperienza — bastano 30 secondi.`);
+  const buttonText = t(config.emailButtonText, 'Lascia la tua valutazione');
+  const footerText = t(config.emailFooterText, `Hai ricevuto questa email perché ti sei connesso al WiFi di ${siteName}.`);
+
+  const scoreBg = ['#fee2e2','#fee2e2','#fef3c7','#fef3c7','#fef3c7','#fef3c7','#fef3c7','#dcfce7','#dcfce7','#dcfce7','#dcfce7'];
+  const scoreFg = ['#dc2626','#dc2626','#b45309','#b45309','#b45309','#b45309','#b45309','#15803d','#15803d','#15803d','#15803d'];
+
+  return (
+    <div style={{ background: '#eef2f7', padding: '24px 16px', borderRadius: '12px' }}>
+      <div style={{ maxWidth: '460px', margin: '0 auto', background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
+        {config.logoUrl ? (
+          <div style={{ background: '#fff', padding: '18px 28px', textAlign: 'center', borderBottom: '1px solid #f0f0f0' }}>
+            <img src={config.logoUrl} alt="logo" style={{ maxHeight: '40px', maxWidth: '140px', objectFit: 'contain' }} />
+          </div>
+        ) : (
+          <div style={{ background: primary, padding: '20px 28px', textAlign: 'center' }}>
+            <span style={{ color: '#fff', fontWeight: 700, fontSize: '15px' }}>{siteName}</span>
+          </div>
+        )}
+        <div style={{ padding: '24px 28px 0' }}>
+          <h2 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: 700, color: '#111' }}>Ciao Ospite,</h2>
+          <p style={{ margin: '0 0 20px', fontSize: '13px', color: '#555', lineHeight: 1.65 }}
+             dangerouslySetInnerHTML={{ __html: bodyText }} />
+          <div style={{ background: '#f7f8fa', borderRadius: '10px', padding: '14px 14px 10px', marginBottom: '20px' }}>
+            <p style={{ margin: '0 0 8px', fontSize: '9px', fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+              Da 0 a 10, quanto ci consiglieresti?
+            </p>
+            <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap' }}>
+              {Array.from({ length: 11 }, (_, i) => (
+                <div key={i} style={{ width: '26px', height: '26px', borderRadius: '5px', background: scoreBg[i], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: scoreFg[i] }}>{i}</div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
+              <span style={{ fontSize: '9px', color: '#bbb' }}>Per niente</span>
+              <span style={{ fontSize: '9px', color: '#bbb' }}>Assolutamente</span>
+            </div>
+          </div>
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <div style={{ display: 'inline-block', background: primary, color: '#fff', padding: '12px 32px', borderRadius: '10px', fontSize: '13px', fontWeight: 700 }}>
+              {buttonText}
+            </div>
+          </div>
+        </div>
+        <div style={{ padding: '14px 28px 20px', borderTop: '1px solid #f0f0f0', textAlign: 'center' }}>
+          <p style={{ margin: 0, fontSize: '10px', color: '#bbb', lineHeight: 1.6 }}>
+            {footerText}<br/>
+            <span style={{ color: '#ccc' }}>Powered by Authwifi</span>
+          </p>
         </div>
       </div>
     </div>
