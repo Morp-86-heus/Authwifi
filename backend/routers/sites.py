@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 from typing import Optional
 from database import get_db
+from services.crypto import encrypt
 from models import Site
 from auth import get_current_manager, require_roles, can_access_site
 
@@ -203,8 +204,12 @@ def update_site(
     site = q.first()
     if not site:
         raise HTTPException(status_code=404, detail="Sito non trovato")
-    for key, val in dto.model_dump(exclude_none=True).items():
+    _data = dto.model_dump(exclude_none=True)
+    _op_pass = _data.pop("omada_operator_pass", None)
+    for key, val in _data.items():
         setattr(site, key, val)
+    if _op_pass is not None:
+        site.omada_operator_pass = encrypt(_op_pass)
     db.commit()
     db.refresh(site)
     from services.cache import cache_delete

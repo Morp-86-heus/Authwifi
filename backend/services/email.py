@@ -208,8 +208,12 @@ def send_html_email(
     subject: str,
     html_body: str,
     smtp_config: dict | None = None,
+    plain_text: str | None = None,
 ) -> bool:
-    """Invia un messaggio HTML generico (usato dal campaign sender)."""
+    """Invia email HTML con parte plain-text alternativa e header anti-spam."""
+    import email.utils as eu
+    import uuid
+
     cfg        = smtp_config or {}
     host       = cfg.get("host")       or GLOBAL_SMTP_HOST
     port       = cfg.get("port")       or GLOBAL_SMTP_PORT
@@ -225,9 +229,19 @@ def send_html_email(
 
     try:
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"]    = f"{from_name} <{from_email}>"
-        msg["To"]      = to_email
+        msg["Subject"]          = subject
+        msg["From"]             = f"{from_name} <{from_email}>"
+        msg["To"]               = to_email
+        msg["Date"]             = eu.formatdate(localtime=True)
+        msg["Message-ID"]       = eu.make_msgid(domain=(from_email.split("@")[-1] if "@" in from_email else "authwifi.it"))
+        msg["MIME-Version"]     = "1.0"
+        msg["List-Unsubscribe"] = f"<mailto:{from_email}?subject=unsubscribe>"
+        msg["Precedence"]       = "bulk"
+        msg["X-Mailer"]         = "Authwifi"
+
+        # Parte plain-text (obbligatoria — riduce drasticamente spam score)
+        fallback_text = plain_text or "Questa email richiede un client che supporti HTML."
+        msg.attach(MIMEText(fallback_text, "plain", "utf-8"))
         msg.attach(MIMEText(html_body, "html", "utf-8"))
 
         if security == "ssl":

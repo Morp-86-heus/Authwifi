@@ -80,6 +80,7 @@ def _survey_page(site: Site, token: str, error: str = "") -> str:
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <link rel="icon" href="data:,">
   <title>{title} — {site_name}</title>
   <style>
     *{{box-sizing:border-box;margin:0;padding:0}}
@@ -177,6 +178,7 @@ def _thank_you_page(site: Site, nps: int) -> str:
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <link rel="icon" href="data:,">
   <title>{ty_title} — {site_name}</title>
   <style>
     *{{box-sizing:border-box;margin:0;padding:0}}
@@ -276,7 +278,7 @@ def list_responses(
 ):
     q = (
         db.query(SurveyResponse, Guest, Site)
-        .join(Guest, SurveyResponse.guest_id == Guest.id)
+        .outerjoin(Guest, SurveyResponse.guest_id == Guest.id)
         .join(Site, SurveyResponse.site_id == Site.id)
         .filter(
             SurveyResponse.tenant_id == current["tenant_id"],
@@ -313,9 +315,9 @@ def list_responses(
             "npsScore": sr.nps_score,
             "comment": sr.comment,
             "submittedAt": sr.submitted_at.isoformat() if sr.submitted_at else None,
-            "guestEmail": g.email,
-            "guestFirstName": g.first_name,
-            "guestLastName": g.last_name,
+            "guestEmail": g.email if g else None,
+            "guestFirstName": g.first_name if g else None,
+            "guestLastName": g.last_name if g else None,
             "siteName": s.name,
             "siteId": sr.site_id,
         }
@@ -335,6 +337,11 @@ def list_responses(
         "passivesPct": 100 - promoters_pct - detractors_pct if n else 0,
         "items": items,
     }
+
+
+@router.get("/", response_class=HTMLResponse)
+def survey_root():
+    return HTMLResponse("<h2>Link non valido.</h2>", status_code=404)
 
 
 @router.get("/{token}", response_class=HTMLResponse)

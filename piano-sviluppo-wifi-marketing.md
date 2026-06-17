@@ -100,7 +100,9 @@ Authwifi/
 │   │       ├── 009_email_customization.py  # 4 colonne personalizzazione email su sites
 │   │       ├── 010_nullable_guest_id.py    # guestId nullable in survey_responses (fix token di test)
 │   │       ├── 011_campaigns.py            # tabelle campaigns + campaign_recipients + tipi PG
-│   │       └── 012_automations.py          # tabella automations + tipo automation_trigger
+│   │       ├── 012_automations.py          # tabella automations + tipo automation_trigger
+│   │       ├── 013_stripe.py               # stripeCustomerId + stripeSubscriptionId su tenants
+│   │       └── 014_billing_tenant_fields.py # planExpiresAt + isSuspended su tenants
 │   ├── routers/
 │   │   ├── auth.py                     # POST /auth/login
 │   │   ├── tenants.py                  # CRUD tenant
@@ -116,7 +118,8 @@ Authwifi/
 │   │   ├── survey.py                   # NPS form pubblico, stats, send-test
 │   │   ├── reviews.py                  # Recensioni Google: lista + sync Places API
 │   │   ├── campaigns.py                # CRUD campagne + send-now + stats + preview
-│   │   └── automations.py              # CRUD automazioni + preview
+│   │   ├── automations.py              # CRUD automazioni + preview
+│   │   └── billing.py                  # /billing/status, /checkout, /portal, /webhook (Stripe)
 │   ├── workers/
 │   │   ├── survey_scheduler.py         # Pubblica su RabbitMQ ogni ora (LATERAL JOIN)
 │   │   ├── survey_sender.py            # Consuma da RabbitMQ, genera JWT, invia email
@@ -128,7 +131,8 @@ Authwifi/
 │       ├── email.py                    # send_survey_email() + send_html_email() via smtplib
 │       ├── email_builder.py            # blocks_to_html(): blocks JSON → HTML email table-based
 │       ├── google_places.py            # fetch_google_reviews() via Places API
-│       └── rabbitmq.py                 # publish_survey() + consume_survey()
+│       ├── rabbitmq.py                 # publish_survey() + consume_survey()
+│       └── stripe_service.py           # create_checkout_session, create_portal_session, construct_webhook_event
 ├── apps/
 │   ├── api/                            # Legacy NestJS (non in uso in produzione)
 │   └── dashboard/                      # React + Vite + Tailwind (porta 3000)
@@ -143,7 +147,8 @@ Authwifi/
 │           │   ├── SurveyPage.tsx      # Tab: NPS & Feedback, Recensioni Google
 │           │   ├── CampaignsPage.tsx   # Campagne email: lista + visual block editor + send-now
 │           │   ├── AutomationsPage.tsx # Automazioni: trigger types + block editor + toggle
-│           │   └── SuperAdminPage.tsx
+│           │   ├── SuperAdminPage.tsx
+│           │   └── BillingPage.tsx     # Piani Stripe (implementata, nascosta — voce sidebar disabilitata)
 │           ├── components/
 │           │   ├── GuestDetail.tsx     # Slide-over con sezione Profilazione
 │           │   ├── ImageUploader.tsx
@@ -505,19 +510,20 @@ openssl rand -hex 32
 - [x] Alembic migration 011: tabelle `campaigns` + `campaign_recipients` con tipi PostgreSQL (`campaign_status`, `campaign_audience`, `recipient_status`)
 - [x] Alembic migration 012: tabella `automations` con tipo `automation_trigger`
 - [x] `models.py` — modelli `Campaign`, `CampaignRecipient`, `Automation`
-- [x] `services/email_builder.py` — `blocks_to_html()`: converte array di blocchi JSON in HTML email table-based; block types: `header` (auto), `text`, `button`, `divider`, `image`; header automatico con logo sito + colore primario
-- [x] `services/email.py` — aggiunta `send_html_email()`: invia email HTML generica (usata dal campaign sender, stessa config SMTP per-sito)
+- [x] `services/email_builder.py` — `blocks_to_html()`: HTML email con **stili 100% inline** (compatibile Gmail/Outlook — nessun `<style>` nel `<head>` che Gmail rimuove); block types: `header` (auto), `text`, `button`, `divider`, `image`; header automatico con logo sito + colore primario; `_abs()` converte URL relativi in assoluti via `BASE_URL` su tutte le immagini e link; `blocks_to_plaintext()` genera versione plain-text per MIME alternativo
+- [x] `services/email.py` — `send_html_email()`: invia email HTML con parte plain-text obbligatoria + header anti-spam (`Date`, `Message-ID`, `List-Unsubscribe`, `Precedence: bulk`, `X-Mailer`)
 - [x] `routers/campaigns.py` — CRUD campagne + endpoint:
   - `GET /campaigns` — lista paginata con filtro sito
   - `POST /campaigns` — crea bozza
-  - `PATCH /campaigns/{id}` — modifica bozza/pianificata
+  - `PATCH /campaigns/{id}` — modifica tutti gli stati eccetto `sending`; se `sent`/`cancelled` riporta automaticamente a `draft`
   - `DELETE /campaigns/{id}`
   - `POST /campaigns/{id}/preview` — restituisce HTML anteprima email (HTMLResponse)
-  - `POST /campaigns/{id}/send-now` — raccoglie destinatari, crea recipient records, imposta status=sending
+  - `POST /campaigns/{id}/send-now` — raccoglie destinatari, cancella vecchi recipient, crea nuovi pending, imposta status=sending; supporta **reinvio** di campagne già `sent` (blocca solo `sending`)
   - `GET /campaigns/{id}/stats` — contatori sent/failed/pending in tempo reale
 - [x] `routers/automations.py` — CRUD automazioni + preview; trigger types: `welcome`, `anniversary`, `inactivity`, `survey_done`, `segment_enter`; campo `delay_hours` e toggle `enabled`
 - [x] `routers/segments.py` — aggiunto endpoint `GET /segments/full` (lista segmenti con sotto-segmenti inclusi, usato dal frontend campagne)
-- [x] `workers/campaign_sender.py` — worker a polling (ogni 30s); carica recipient status=pending, invia email via SMTP del sito, aggiorna status sent/failed; aggiorna campaign.status=sent quando totalRecipients=sentCount+failedCount
+- [x] `routers/survey.py` — fix: `outerjoin` con `Guest` (non inner join) → risposte con `guestId=NULL` (email di test, ospiti anonimi) ora visibili nella lista; aggiunta route `GET /survey/` esplicita (404 pulito); aggiunto `<link rel="icon" href="data:,">` nelle pagine HTML per eliminare errore favicon
+- [x] `workers/campaign_sender.py` — worker a polling (ogni 30s); genera plain-text via `blocks_to_plaintext()`, invia via `send_html_email()` con plain-text alternativo; aggiorna status sent/failed; aggiorna campaign.status=sent quando completo
 - [x] `docker-compose.yml` — nuovo servizio `campaign-sender` (dipende da postgres + redis)
 - [x] `main.py` — include `campaigns.router` e `automations.router`
 
@@ -525,12 +531,14 @@ openssl rand -hex 32
 
 - [x] `CampaignsPage.tsx` — pagina campagne email completa:
   - Lista campagne con stato badge (bozza/pianificata/in invio/inviata/annullata), destinatari, date
+  - **Pulsante Modifica (matita) su tutte le campagne** — non solo bozze; se inviata, il pulsante "Invia ora" diventa "Reinvia"
   - Modal crea/modifica con due tab (Impostazioni + Contenuto email)
   - Selezione sito, oggetto email, audience type (tutti/segmento/sotto-segmento/solo consenso marketing)
   - Pianificazione invio con datetime picker
   - **Visual block editor**: drag & drop HTML5 nativo, blocchi text/button/divider/image
   - **Anteprima live in browser**: `blocksToPreview()` genera HTML email direttamente nel browser (no round-trip), visualizzato in `<iframe srcDoc>`
-  - Bottone "Invia ora" con conferma; statistiche campagna in modal separato (tasso di consegna progress bar)
+  - Bottone "Invia ora" / "Reinvia" con conferma; statistiche campagna in modal separato (tasso di consegna progress bar)
+  - Modal non si chiude al click esterno (solo X o Annulla)
 - [x] `AutomationsPage.tsx` — gestione automazioni:
   - Lista automazioni con toggle attiva/disattiva inline
   - Modal crea/modifica: trigger type, delay hours, block editor integrato
@@ -547,17 +555,41 @@ openssl rand -hex 32
 | `sub_segment` | Ospiti con `sub_segment_id` = sotto-segmento selezionato |
 | `marketing_consent` | Ospiti con `Consent.type=MARKETING_EMAIL` + `granted=True` |
 
-**Deliverable:** suite di marketing operativa — creazione campagne, block editor visuale, invio immediato o pianificato, automazioni per trigger comportamentali. ✅
+#### Fix post-deploy Fase 3
+
+- [x] **Email spam**: `send_html_email` ora allega sempre parte plain-text alternativa + header `List-Unsubscribe`, `Message-ID`, `Date`, `Precedence: bulk` — riduce drasticamente spam score
+- [x] **Immagini non visibili**: `email_builder.py` riscritto con stili 100% inline (Gmail rimuove `<style>` nel `<head>`); `_image_block()` applica `_abs()` per URL assoluti; tutte le immagini usano `BASE_URL` per essere raggiungibili da client email esterni
+- [x] **Survey lista vuota**: query `list_responses` usava INNER JOIN con `guests` → righe con `guestId=NULL` escluse; corretta in `outerjoin`; aggiunta gestione `g is None` nella serializzazione
+- [x] **favicon 400**: aggiunto `<link rel="icon" href="data:,">` nelle pagine HTML survey/thank-you; aggiunta route `GET /survey/` esplicita
+- [x] **Modifica + reinvio campagne inviate**: `PATCH /campaigns/{id}` accetta ora tutti gli stati (eccetto `sending`); `POST /campaigns/{id}/send-now` non blocca più su status `sent`; frontend mostra pulsante Modifica su tutte le campagne e label "Reinvia" se già inviata
+
+**Nota infrastrutturale:** i container Docker usano il codice copiato al build — `docker compose restart` non ricarica le modifiche. Sempre usare `docker compose up --build <service> -d`.
+
+**Deliverable:** suite di marketing operativa — creazione campagne, block editor visuale, invio immediato o pianificato, reinvio campagne, automazioni per trigger comportamentali, email deliverability ottimizzata. ✅
 
 ---
 
-### Fase 4 — Reputation e billing (4-6 settimane) ⏳ DA IMPLEMENTARE
+### Fase 4 — Reputation e billing ⏳ IN CORSO
 
-- [ ] Aggregatore recensioni multi-piattaforma (Google, TripAdvisor, Booking)
+#### Billing / Stripe — implementato, non attivato
+
+- [x] `models.py` — campi `stripeCustomerId`, `stripeSubscriptionId`, `planExpiresAt`, `isSuspended` su `Tenant`
+- [x] Alembic migration 013: `stripeCustomerId` + `stripeSubscriptionId`
+- [x] Alembic migration 014: `planExpiresAt` + `isSuspended`
+- [x] `services/stripe_service.py` — wrapper Stripe SDK: `create_checkout_session`, `create_portal_session`, `construct_webhook_event`
+- [x] `routers/billing.py` — `/billing/status`, `/billing/checkout`, `/billing/portal`, `/billing/webhook`
+- [x] `BillingPage.tsx` — UI piani Starter/Pro/Enterprise con badge piano corrente e pulsante portale
+- [x] `Dockerfile` — `alembic upgrade head` eseguito automaticamente all'avvio
+- [x] Voce sidebar "Abbonamento" **nascosta** (route `/billing` attiva ma non linkata) — si attiva configurando le variabili Stripe e decommentando la `NavItem` in `AppLayout.tsx`
+
+**Per attivare Stripe:** aggiungere al `.env` `STRIPE_SECRET_KEY`, `STRIPE_PRICE_STARTER/PRO/ENTERPRISE`, `STRIPE_WEBHOOK_SECRET` e riabilitare la voce sidebar.
+
+#### Ancora da fare
+
+- [ ] Aggregatore recensioni multi-piattaforma (TripAdvisor, Booking)
 - [ ] Sentiment analysis sui feedback
 - [ ] Widget recensioni embeddabile sul sito della struttura
 - [ ] Cifratura credenziali Omada (vault o colonne cifrate in DB)
-- [ ] Billing e piani (Stripe): checkout, webhook, aggiornamento `plan` e `planExpiresAt`
 - [ ] Load testing con migliaia di tenant simulati
 
 **Deliverable:** prodotto commercializzabile con pricing a tier.

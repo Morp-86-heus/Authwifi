@@ -3,7 +3,7 @@ import { RichTextEditor } from '../components/RichTextEditor';
 import {
   Send, Plus, Trash2, GripVertical, Eye, Calendar,
   Type, Link2, Minus, ImageIcon, X, CheckCircle,
-  Clock, AlertCircle, FileText, RefreshCw, Users, ChevronDown
+  Clock, AlertCircle, FileText, RefreshCw, Users, ChevronDown, Pencil
 } from 'lucide-react';
 import api from '../api/client';
 
@@ -582,7 +582,7 @@ function CampaignModal({
             </button>
             <button onClick={handleSendNow} disabled={sending || saving}
               className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg disabled:opacity-60">
-              <Send className="w-4 h-4"/> {sending ? 'Invio...' : 'Invia ora'}
+              <Send className="w-4 h-4"/> {sending ? 'Invio...' : campaign?.status === 'sent' ? 'Reinvia' : 'Invia ora'}
             </button>
           </div>
         </div>
@@ -776,12 +776,10 @@ export default function CampaignsPage() {
                           <CheckCircle className="w-4 h-4"/>
                         </button>
                       )}
-                      {['draft','scheduled'].includes(c.status) && (
-                        <button onClick={() => openEdit(c)}
+                      <button onClick={() => openEdit(c)}
                           className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors" title="Modifica">
-                          <FileText className="w-4 h-4"/>
+                          <Pencil className="w-4 h-4"/>
                         </button>
-                      )}
                       {!['sending'].includes(c.status) && (
                         <button onClick={() => handleDelete(c)}
                           className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Elimina">

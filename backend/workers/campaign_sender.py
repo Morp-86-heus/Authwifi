@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from models import Campaign, CampaignRecipient, Site, Guest, new_id
 from services.email import send_html_email
+from services.email_builder import blocks_to_plaintext
 from services.email_builder import blocks_to_html
 
 logging.basicConfig(
@@ -64,11 +65,13 @@ def _send_one(db: Session, recipient: CampaignRecipient, campaign: Campaign, sit
             guest_name = g.first_name or ""
 
     try:
+        plain = blocks_to_plaintext(blocks, site_name=name)
         ok = send_html_email(
             recipient.email,
-            campaign.subject or name or "Messaggio da " + name,
+            campaign.subject or ("Messaggio da " + name) if name else "Nuovo messaggio",
             html_body,
             smtp_config,
+            plain_text=plain,
         )
         return ok
     except Exception as exc:

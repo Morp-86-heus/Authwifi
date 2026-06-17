@@ -5,8 +5,11 @@ from sqlalchemy import func, desc, cast, Date
 from database import get_db
 from models import Guest, WifiSession
 from auth import get_current_manager, can_access_site
+from services.cache import cache_get, cache_set
 
 router = APIRouter(prefix="/stats", tags=["stats"])
+
+_TTL_STATS = 300  # 5 minuti
 
 
 @router.get("/{site_id}")
@@ -18,11 +21,16 @@ def get_site_stats(
     if not can_access_site(site_id, current):
         raise HTTPException(status_code=403, detail="Accesso non autorizzato a questo sito")
 
+    cache_key = f"stats:{site_id}:{current['tenant_id']}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
     tenant_id = current["tenant_id"]
     now = datetime.utcnow()
-    start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start_of_day  = now.replace(hour=0, minute=0, second=0, microsecond=0)
     start_of_week = now - timedelta(days=7)
-    start_30d = now - timedelta(days=30)
+    start_30d     = now - timedelta(days=30)
 
     total_guests = (
         db.query(func.count(Guest.id))
@@ -44,7 +52,6 @@ def get_site_stats(
         .filter(Guest.tenant_id == tenant_id, Guest.deleted_at.is_(None), Guest.email.isnot(None))
         .scalar()
     )
-
     by_day_rows = (
         db.query(
             cast(Guest.created_at, Date).label("day"),
@@ -59,15 +66,14 @@ def get_site_stats(
         .order_by("day")
         .all()
     )
-
     top_countries = (
         db.query(Guest.country, func.count(Guest.id).label("cnt"))
         .filter(Guest.tenant_id == tenant_id, Guest.deleted_at.is_(None), Guest.country.isnot(None))
         .group_by(Guest.country)
         .order_by(desc("cnt"))
+        .limit(30)
         .all()
     )
-
     recent_guests = (
         db.query(Guest)
         .filter(Guest.tenant_id == tenant_id, Guest.deleted_at.is_(None))
@@ -76,7 +82,7 @@ def get_site_stats(
         .all()
     )
 
-    return {
+    result = {
         "totalGuests": total_guests,
         "newGuestsThisWeek": new_guests_this_week,
         "connectionsToday": connections_today,
@@ -100,3 +106,5 @@ def get_site_stats(
             for g in recent_guests
         ],
     }
+    cache_set(cache_key, result, ttl=_TTL_STATS)
+    return result

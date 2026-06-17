@@ -8,6 +8,8 @@ from database import get_db
 from models import Site, Guest, WifiSession, Consent, MacWhitelist, MacBlacklist, Segment, SubSegment
 from services.omada import OmadaClient
 from services.splash import render_splash
+from services.cache import cache_get, cache_set, TTL_SITE, TTL_LISTS
+from services.crypto import decrypt
 
 router = APIRouter(prefix="/portal", tags=["portal"])
 omada_client = OmadaClient()
@@ -59,7 +61,6 @@ async def splash(
     redirectUrl: str = Query(default=""),
     db: Session = Depends(get_db),
 ):
-    from services.cache import cache_get, cache_set, TTL_SITE, TTL_LISTS
 
     # ── 1. Site meta (5 min cache) ──────────────────────────────────────────
     site_meta = cache_get(f"site_meta:{siteId}")
@@ -92,7 +93,7 @@ async def splash(
             "_omada_omadac_id":      db_site.omada_omadac_id,
             "_omada_site_id":        db_site.omada_site_id,
             "_omada_operator_user":  db_site.omada_operator_user,
-            "_omada_operator_pass":  db_site.omada_operator_pass,
+            # _omada_operator_pass escluso dalla cache (dato sensibile)
         }
         cache_set(f"site_meta:{siteId}", site_meta, TTL_SITE)
 
@@ -144,13 +145,17 @@ p{{font-size:.9rem;color:#666;line-height:1.5}}</style>
             ))
             db.commit()
             if all([site_meta["_omada_controller_url"], site_meta["_omada_omadac_id"], site_meta["_omada_site_id"]]):
+                # Pass non in cache: carica dal DB e decifra
+                if db_site is None:
+                    db_site = db.query(Site).filter(Site.id == siteId).first()
+                _op_pass = decrypt(db_site.omada_operator_pass) if db_site else ""
                 try:
                     await omada_client.authorize_client(
                         controller_url=site_meta["_omada_controller_url"],
                         omadac_id=site_meta["_omada_omadac_id"],
                         site_id=site_meta["_omada_site_id"],
                         operator_user=site_meta["_omada_operator_user"],
-                        operator_pass=site_meta["_omada_operator_pass"],
+                        operator_pass=_op_pass,
                         client_mac=clientMac,
                         ap_mac=apMac,
                         ssid_name=ssidName,

@@ -83,6 +83,8 @@ class Tenant(Base):
     logo_url: Mapped[str | None] = mapped_column("logoUrl", String, nullable=True)
 
     plan_expires_at: Mapped[datetime | None] = mapped_column("planExpiresAt", DateTime, nullable=True)
+    stripe_customer_id: Mapped[str | None] = mapped_column("stripeCustomerId", String, nullable=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column("stripeSubscriptionId", String, nullable=True)
     is_suspended: Mapped[bool] = mapped_column("isSuspended", Boolean, default=False, server_default="false")
 
     created_at: Mapped[datetime] = mapped_column("createdAt", DateTime, server_default=func.now())

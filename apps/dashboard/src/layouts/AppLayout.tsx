@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Wifi, LayoutDashboard, Users, Settings, LogOut, UsersRound, ShieldCheck, AlertTriangle, X, Eye, EyeOff, Tags, MessageSquareDot, Send, Zap } from 'lucide-react';
+import { Wifi, LayoutDashboard, Users, Settings, LogOut, UsersRound, ShieldCheck, AlertTriangle, X, Eye, EyeOff, Tags, MessageSquareDot, Send, Zap, CreditCard } from 'lucide-react';
 import { useAuthStore } from '../stores/auth';
 import { useEffect, useState } from 'react';
 import api from '../api/client';

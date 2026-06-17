@@ -10,6 +10,7 @@ import SegmentsPage from './pages/SegmentsPage';
 import SurveyPage from './pages/SurveyPage';
 import CampaignsPage from './pages/CampaignsPage';
 import AutomationsPage from './pages/AutomationsPage';
+import BillingPage from './pages/BillingPage';
 import AppLayout from './layouts/AppLayout';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="survey" element={<SurveyPage />} />
         <Route path="campaigns" element={<CampaignsPage />} />
         <Route path="automations" element={<AutomationsPage />} />
+        <Route path="billing" element={<BillingPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

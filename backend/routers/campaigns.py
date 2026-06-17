@@ -186,8 +186,11 @@ def update_campaign(
     ).first()
     if not c:
         raise HTTPException(404, "Campaign not found")
-    if c.status not in ("draft", "scheduled"):
-        raise HTTPException(400, "Solo bozze e pianificate sono modificabili")
+    if c.status == "sending":
+        raise HTTPException(400, "Campagna in invio, impossibile modificare")
+    # Se già inviata/annullata, riporta a bozza al salvataggio
+    if c.status in ("sent", "cancelled"):
+        c.status = "draft"
     c.site_id = data.site_id
     c.name = data.name
     c.subject = data.subject
@@ -254,8 +257,8 @@ def send_now(
     ).first()
     if not c:
         raise HTTPException(404, "Campaign not found")
-    if c.status in ("sending", "sent"):
-        raise HTTPException(400, "Campagna già in invio o inviata")
+    if c.status == "sending":
+        raise HTTPException(400, "Campagna già in invio, attendi il completamento")
 
     recipients = _collect_recipients(
         db, current["tenant_id"], c.site_id,
