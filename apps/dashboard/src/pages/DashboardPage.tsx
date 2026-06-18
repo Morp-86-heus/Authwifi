@@ -128,6 +128,162 @@ export default function DashboardPage() {
         <KpiCard label="Email raccolte" value={loading ? '–' : String(stats?.emailsCollected ?? 0)} sub="Ospiti con email valida" color="orange" icon={<Mail className="w-9 h-9" />} onClick={() => navigate('/guests')} />
       </div>
 
+      {/* NPS + Recensioni Google - 2 colonne */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* NPS Widget */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MessageSquareDot className="w-4 h-4 text-brand-500" />
+              <h2 className="font-semibold text-gray-900">NPS & Feedback</h2>
+            </div>
+            <button onClick={() => navigate('/survey')} className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium">
+              Vedi tutti <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+          {loading ? (
+            <div className="px-6 py-8 text-center text-sm text-gray-400">Caricamento...</div>
+          ) : !nps || nps.total === 0 ? (
+            <div className="px-6 py-8 text-center">
+              <MessageSquareDot className="w-7 h-7 text-gray-200 mx-auto mb-2" />
+              <p className="text-sm text-gray-400">Nessuna risposta survey ancora.</p>
+            </div>
+          ) : (
+            <div className="px-6 py-5 space-y-4">
+              {/* Score + distribuzione */}
+              <div className="flex items-center gap-6">
+                <div className="text-center shrink-0">
+                  <p className={`text-4xl font-bold ${nps.avgNps !== null && nps.avgNps >= 8 ? 'text-green-600' : nps.avgNps !== null && nps.avgNps >= 6 ? 'text-yellow-500' : 'text-red-500'}`}>
+                    {nps.avgNps ?? '—'}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">Media NPS</p>
+                </div>
+                <div className="flex-1 space-y-2">
+                  <div className="flex h-2.5 rounded-full overflow-hidden gap-0.5">
+                    {nps.promotersPct > 0  && <div className="bg-green-500"  style={{ width: `${nps.promotersPct}%` }} />}
+                    {nps.passivesPct > 0   && <div className="bg-yellow-400" style={{ width: `${nps.passivesPct}%` }} />}
+                    {nps.detractorsPct > 0 && <div className="bg-red-500"    style={{ width: `${nps.detractorsPct}%` }} />}
+                  </div>
+                  <div className="flex gap-4">
+                    <span className="flex items-center gap-1 text-xs text-gray-500"><TrendingUp className="w-3 h-3 text-green-500"/>{nps.promotersPct}% Promotori</span>
+                    <span className="flex items-center gap-1 text-xs text-gray-500"><Minus className="w-3 h-3 text-yellow-500"/>{nps.passivesPct}% Passivi</span>
+                    <span className="flex items-center gap-1 text-xs text-gray-500"><TrendingDown className="w-3 h-3 text-red-500"/>{nps.detractorsPct}% Detrattori</span>
+                  </div>
+                </div>
+              </div>
+              {/* Ultime 3 risposte */}
+              <div className="divide-y divide-gray-50 border-t border-gray-50">
+                {nps.items.slice(0, 3).map((item) => {
+                  const name = [item.guestFirstName, item.guestLastName].filter(Boolean).join(' ') || item.guestEmail || 'Ospite anonimo';
+                  const scoreColor = item.npsScore === null ? 'bg-gray-100 text-gray-500' : item.npsScore >= 9 ? 'bg-green-100 text-green-700' : item.npsScore >= 7 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700';
+                  return (
+                    <div key={item.id} className="py-3 flex items-start gap-3">
+                      <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${scoreColor}`}>
+                        {item.npsScore ?? '—'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{name}</p>
+                        {item.comment && <p className="text-xs text-gray-400 truncate">"{item.comment}"</p>}
+                      </div>
+                      <span className="text-xs text-gray-400 shrink-0">
+                        {item.submittedAt ? new Date(item.submittedAt).toLocaleDateString('it-IT') : '—'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Recensioni Google */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+              <h2 className="font-semibold text-gray-900">Recensioni Google</h2>
+            </div>
+            <button onClick={() => navigate('/survey')} className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium">
+              Vedi tutte <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+          {loading ? (
+            <div className="px-6 py-8 text-center text-sm text-gray-400">Caricamento...</div>
+          ) : !reviews || reviews.total === 0 ? (
+            <div className="px-6 py-8 text-center">
+              <Star className="w-7 h-7 text-gray-200 fill-gray-200 mx-auto mb-2" />
+              <p className="text-sm text-gray-400">
+                {reviews?.hasApiKey === false
+                  ? 'Configura la Google Places API Key in Impostazioni → Survey'
+                  : 'Nessuna recensione ancora. Usa il pulsante Sincronizza nella pagina Survey.'}
+              </p>
+            </div>
+          ) : (
+            <div className="px-6 py-5 space-y-4">
+              {/* Media stelle */}
+              <div className="flex items-center gap-5">
+                <div className="text-center shrink-0">
+                  <p className="text-4xl font-bold text-gray-900">{reviews.avgRating ?? '—'}</p>
+                  <div className="flex justify-center gap-0.5 mt-1">
+                    {[1,2,3,4,5].map((s) => (
+                      <Star key={s} className={`w-3.5 h-3.5 ${reviews.avgRating && s <= Math.round(reviews.avgRating) ? 'text-amber-400 fill-amber-400' : 'text-gray-200 fill-gray-200'}`} />
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">{reviews.total} recension{reviews.total === 1 ? 'e' : 'i'}</p>
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  {[5,4,3,2,1].map((star) => {
+                    const cnt = reviews.items.filter(r => r.rating === star).length;
+                    const pct = reviews.items.length > 0 ? Math.round((cnt / reviews.items.length) * 100) : 0;
+                    return (
+                      <div key={star} className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400 w-3">{star}</span>
+                        <Star className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" />
+                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-amber-400 rounded-full" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-xs text-gray-400 w-6 text-right">{cnt}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* Ultime 3 recensioni */}
+              <div className="divide-y divide-gray-50 border-t border-gray-50">
+                {reviews.items.slice(0, 3).map((r) => {
+                  const initials = (r.authorName ?? 'A')[0].toUpperCase();
+                  return (
+                    <div key={r.id} className="py-3 flex items-start gap-3">
+                      {r.authorPhoto ? (
+                        <img src={r.authorPhoto} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center shrink-0">
+                          <span className="text-xs font-semibold text-brand-600">{initials}</span>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className="text-sm font-medium text-gray-900 truncate">{r.authorName ?? 'Anonimo'}</p>
+                          <div className="flex gap-0.5 shrink-0">
+                            {[1,2,3,4,5].map((s) => (
+                              <Star key={s} className={`w-3 h-3 ${r.rating && s <= r.rating ? 'text-amber-400 fill-amber-400' : 'text-gray-200 fill-gray-200'}`} />
+                            ))}
+                          </div>
+                        </div>
+                        {r.text && <p className="text-xs text-gray-400 truncate">"{r.text}"</p>}
+                      </div>
+                      <span className="text-xs text-gray-400 shrink-0">
+                        {r.publishedAt ? new Date(r.publishedAt).toLocaleDateString('it-IT') : '—'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Trend chart */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <div className="flex items-center justify-between mb-6">
@@ -198,159 +354,6 @@ export default function DashboardPage() {
         )}
         {!loading && !stats?.topCountries.length && (
           <p className="text-sm text-gray-400 text-center py-4">Nessun dato disponibile</p>
-        )}
-      </div>
-
-      {/* NPS Widget */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <MessageSquareDot className="w-4 h-4 text-brand-500" />
-            <h2 className="font-semibold text-gray-900">NPS & Feedback</h2>
-          </div>
-          <button onClick={() => navigate('/survey')} className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium">
-            Vedi tutti <ArrowRight className="w-3 h-3" />
-          </button>
-        </div>
-        {loading ? (
-          <div className="px-6 py-8 text-center text-sm text-gray-400">Caricamento...</div>
-        ) : !nps || nps.total === 0 ? (
-          <div className="px-6 py-8 text-center">
-            <MessageSquareDot className="w-7 h-7 text-gray-200 mx-auto mb-2" />
-            <p className="text-sm text-gray-400">Nessuna risposta survey ancora.</p>
-          </div>
-        ) : (
-          <div className="px-6 py-5 space-y-4">
-            {/* Score + distribuzione */}
-            <div className="flex items-center gap-6">
-              <div className="text-center shrink-0">
-                <p className={`text-4xl font-bold ${nps.avgNps !== null && nps.avgNps >= 8 ? 'text-green-600' : nps.avgNps !== null && nps.avgNps >= 6 ? 'text-yellow-500' : 'text-red-500'}`}>
-                  {nps.avgNps ?? '—'}
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5">Media NPS</p>
-              </div>
-              <div className="flex-1 space-y-2">
-                <div className="flex h-2.5 rounded-full overflow-hidden gap-0.5">
-                  {nps.promotersPct > 0  && <div className="bg-green-500"  style={{ width: `${nps.promotersPct}%` }} />}
-                  {nps.passivesPct > 0   && <div className="bg-yellow-400" style={{ width: `${nps.passivesPct}%` }} />}
-                  {nps.detractorsPct > 0 && <div className="bg-red-500"    style={{ width: `${nps.detractorsPct}%` }} />}
-                </div>
-                <div className="flex gap-4">
-                  <span className="flex items-center gap-1 text-xs text-gray-500"><TrendingUp className="w-3 h-3 text-green-500"/>{nps.promotersPct}% Promotori</span>
-                  <span className="flex items-center gap-1 text-xs text-gray-500"><Minus className="w-3 h-3 text-yellow-500"/>{nps.passivesPct}% Passivi</span>
-                  <span className="flex items-center gap-1 text-xs text-gray-500"><TrendingDown className="w-3 h-3 text-red-500"/>{nps.detractorsPct}% Detrattori</span>
-                </div>
-              </div>
-            </div>
-            {/* Ultime 3 risposte */}
-            <div className="divide-y divide-gray-50 border-t border-gray-50">
-              {nps.items.slice(0, 3).map((item) => {
-                const name = [item.guestFirstName, item.guestLastName].filter(Boolean).join(' ') || item.guestEmail || 'Ospite anonimo';
-                const scoreColor = item.npsScore === null ? 'bg-gray-100 text-gray-500' : item.npsScore >= 9 ? 'bg-green-100 text-green-700' : item.npsScore >= 7 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700';
-                return (
-                  <div key={item.id} className="py-3 flex items-start gap-3">
-                    <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${scoreColor}`}>
-                      {item.npsScore ?? '—'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{name}</p>
-                      {item.comment && <p className="text-xs text-gray-400 truncate">"{item.comment}"</p>}
-                    </div>
-                    <span className="text-xs text-gray-400 shrink-0">
-                      {item.submittedAt ? new Date(item.submittedAt).toLocaleDateString('it-IT') : '—'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Recensioni Google */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-            <h2 className="font-semibold text-gray-900">Recensioni Google</h2>
-          </div>
-          <button onClick={() => navigate('/survey')} className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium">
-            Vedi tutte <ArrowRight className="w-3 h-3" />
-          </button>
-        </div>
-        {loading ? (
-          <div className="px-6 py-8 text-center text-sm text-gray-400">Caricamento...</div>
-        ) : !reviews || reviews.total === 0 ? (
-          <div className="px-6 py-8 text-center">
-            <Star className="w-7 h-7 text-gray-200 fill-gray-200 mx-auto mb-2" />
-            <p className="text-sm text-gray-400">
-              {reviews?.hasApiKey === false
-                ? 'Configura la Google Places API Key in Impostazioni → Survey'
-                : 'Nessuna recensione ancora. Usa il pulsante Sincronizza nella pagina Survey.'}
-            </p>
-          </div>
-        ) : (
-          <div className="px-6 py-5 space-y-4">
-            {/* Media stelle */}
-            <div className="flex items-center gap-5">
-              <div className="text-center shrink-0">
-                <p className="text-4xl font-bold text-gray-900">{reviews.avgRating ?? '—'}</p>
-                <div className="flex justify-center gap-0.5 mt-1">
-                  {[1,2,3,4,5].map((s) => (
-                    <Star key={s} className={`w-3.5 h-3.5 ${reviews.avgRating && s <= Math.round(reviews.avgRating) ? 'text-amber-400 fill-amber-400' : 'text-gray-200 fill-gray-200'}`} />
-                  ))}
-                </div>
-                <p className="text-xs text-gray-400 mt-0.5">{reviews.total} recension{reviews.total === 1 ? 'e' : 'i'}</p>
-              </div>
-              <div className="flex-1 space-y-1.5">
-                {[5,4,3,2,1].map((star) => {
-                  const cnt = reviews.items.filter(r => r.rating === star).length;
-                  const pct = reviews.items.length > 0 ? Math.round((cnt / reviews.items.length) * 100) : 0;
-                  return (
-                    <div key={star} className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400 w-3">{star}</span>
-                      <Star className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" />
-                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-amber-400 rounded-full" style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className="text-xs text-gray-400 w-6 text-right">{cnt}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            {/* Ultime 3 recensioni */}
-            <div className="divide-y divide-gray-50 border-t border-gray-50">
-              {reviews.items.slice(0, 3).map((r) => {
-                const initials = (r.authorName ?? 'A')[0].toUpperCase();
-                return (
-                  <div key={r.id} className="py-3 flex items-start gap-3">
-                    {r.authorPhoto ? (
-                      <img src={r.authorPhoto} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center shrink-0">
-                        <span className="text-xs font-semibold text-brand-600">{initials}</span>
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <p className="text-sm font-medium text-gray-900 truncate">{r.authorName ?? 'Anonimo'}</p>
-                        <div className="flex gap-0.5 shrink-0">
-                          {[1,2,3,4,5].map((s) => (
-                            <Star key={s} className={`w-3 h-3 ${r.rating && s <= r.rating ? 'text-amber-400 fill-amber-400' : 'text-gray-200 fill-gray-200'}`} />
-                          ))}
-                        </div>
-                      </div>
-                      {r.text && <p className="text-xs text-gray-400 truncate">"{r.text}"</p>}
-                    </div>
-                    <span className="text-xs text-gray-400 shrink-0">
-                      {r.publishedAt ? new Date(r.publishedAt).toLocaleDateString('it-IT') : '—'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         )}
       </div>
 
