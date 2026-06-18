@@ -357,6 +357,7 @@ openssl rand -hex 32
 - [x] `SettingsPage.tsx` — tab "Survey": toggle abilitazione, Google Place ID, ore delay, email di test, review funnel card
 - [x] Sidebar: voce "Survey & NPS" con icona `MessageSquareDot`
 - [x] `DashboardPage.tsx` — widget NPS: media NPS colorata, barra distribuzione promotori/passivi/detrattori, ultime 3 risposte, link a SurveyPage
+- [x] `DashboardPage.tsx` — widget Recensioni Google: media stelle, barra distribuzione per stella (5→1), ultime 3 recensioni con foto/avatar, stato vuoto contestuale (no API key vs nessuna recensione)
 
 #### Fix post-deploy
 
