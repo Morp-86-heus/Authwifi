@@ -16,10 +16,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute("CREATE TYPE plan_enum AS ENUM ('TRIAL','STARTER','PRO','ENTERPRISE')")
-    op.execute("CREATE TYPE site_type_enum AS ENUM ('HOTEL','BNB','BEACH_CLUB','RESTAURANT','OTHER')")
-    op.execute("CREATE TYPE consent_type_enum AS ENUM ('TERMS_OF_SERVICE','MARKETING_EMAIL','MARKETING_SMS','PROFILING','THIRD_PARTY')")
-
     op.create_table(
         "tenants",
         sa.Column("id", sa.String(), nullable=False),
@@ -27,7 +23,7 @@ def upgrade() -> None:
         sa.Column("slug", sa.String(), nullable=False),
         sa.Column("contact_email", sa.String(), nullable=True),
         sa.Column("logo_url", sa.String(), nullable=True),
-        sa.Column("plan", sa.Enum("TRIAL", "STARTER", "PRO", "ENTERPRISE", name="plan_enum", create_type=False), nullable=False, server_default="TRIAL"),
+        sa.Column("plan", sa.Enum("TRIAL", "STARTER", "PRO", "ENTERPRISE", name="plan_enum"), nullable=False, server_default="TRIAL"),
         sa.Column("created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
         sa.Column("deleted_at", sa.DateTime(), nullable=True),
@@ -57,7 +53,7 @@ def upgrade() -> None:
         sa.Column("tenant_id", sa.String(), nullable=False),
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("address", sa.String(), nullable=True),
-        sa.Column("type", sa.Enum("HOTEL", "BNB", "BEACH_CLUB", "RESTAURANT", "OTHER", name="site_type_enum", create_type=False), nullable=False, server_default="HOTEL"),
+        sa.Column("type", sa.Enum("HOTEL", "BNB", "BEACH_CLUB", "RESTAURANT", "OTHER", name="site_type_enum"), nullable=False, server_default="HOTEL"),
         sa.Column("omada_controller_url", sa.String(), nullable=True),
         sa.Column("omada_omadac_id", sa.String(), nullable=True),
         sa.Column("omada_site_id", sa.String(), nullable=True),
@@ -117,7 +113,7 @@ def upgrade() -> None:
         "consents",
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("guest_id", sa.String(), nullable=False),
-        sa.Column("type", sa.Enum("TERMS_OF_SERVICE", "MARKETING_EMAIL", "MARKETING_SMS", "PROFILING", "THIRD_PARTY", name="consent_type_enum", create_type=False), nullable=False),
+        sa.Column("type", sa.Enum("TERMS_OF_SERVICE", "MARKETING_EMAIL", "MARKETING_SMS", "PROFILING", "THIRD_PARTY", name="consent_type_enum"), nullable=False),
         sa.Column("granted", sa.Boolean(), nullable=False, server_default="true"),
         sa.Column("ip_address", sa.String(), nullable=True),
         sa.Column("user_agent", sa.String(), nullable=True),
