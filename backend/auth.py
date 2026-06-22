@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
@@ -30,7 +30,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def create_access_token(manager_id: str, tenant_id: str, role: str) -> str:
-    expire = datetime.utcnow() + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
+    expire = datetime.now(timezone.utc) + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
     return jwt.encode(
         {"sub": manager_id, "tenantId": tenant_id, "role": role, "exp": expire},
         SECRET_KEY,
@@ -61,7 +61,7 @@ def get_current_manager(
             raise HTTPException(status_code=403, detail="Tenant non trovato")
         if tenant.is_suspended:
             raise HTTPException(status_code=403, detail="Account sospeso")
-        if tenant.plan_expires_at and tenant.plan_expires_at < datetime.utcnow():
+        if tenant.plan_expires_at and tenant.plan_expires_at < datetime.now(timezone.utc).replace(tzinfo=None):
             raise HTTPException(status_code=403, detail="Licenza scaduta")
 
     if role in ("superadmin", "owner"):

@@ -1,6 +1,6 @@
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, Query
@@ -389,7 +389,7 @@ def survey_submit(
             return HTMLResponse(_thank_you_page(site, sr.nps_score or nps_score))
         sr.nps_score = nps_score
         sr.comment = comment.strip() or None
-        sr.submitted_at = datetime.utcnow()
+        sr.submitted_at = datetime.now(timezone.utc).replace(tzinfo=None)
     else:
         sr = SurveyResponse(
             guest_id=payload.get("guest_id"),
@@ -398,7 +398,7 @@ def survey_submit(
             nps_score=nps_score,
             comment=comment.strip() or None,
             survey_token=token,
-            submitted_at=datetime.utcnow(),
+            submitted_at=datetime.now(timezone.utc).replace(tzinfo=None),
         )
         db.add(sr)
 

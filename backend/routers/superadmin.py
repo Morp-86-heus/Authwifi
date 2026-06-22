@@ -4,7 +4,7 @@ from sqlalchemy import func
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from database import get_db
 from models import Tenant, Manager, Site, ManagerRole, ManagerSite
 from auth import require_roles, hash_password
@@ -79,7 +79,7 @@ def _license_status(t: Tenant) -> str:
         return "sospeso"
     if t.plan_expires_at is None:
         return "attivo"
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     if t.plan_expires_at < now:
         return "scaduto"
     if t.plan_expires_at < now + timedelta(days=7):
@@ -116,7 +116,7 @@ def _tenant_out(t: Tenant, db: Session) -> dict:
         "planExpiresAt": t.plan_expires_at,
         "isSuspended": t.is_suspended,
         "licenseStatus": _license_status(t),
-        "daysRemaining": max(0, (t.plan_expires_at - datetime.utcnow()).days) if t.plan_expires_at else None,
+        "daysRemaining": max(0, (t.plan_expires_at - datetime.now(timezone.utc).replace(tzinfo=None)).days) if t.plan_expires_at else None,
         "createdAt": t.created_at,
     }
 
@@ -143,7 +143,7 @@ def create_tenant(
         "owner_email", "owner_password", "owner_first_name", "owner_last_name"
     })
     if "plan_expires_at" not in anagrafica and anagrafica.get("plan", "TRIAL") == "TRIAL":
-        anagrafica["plan_expires_at"] = datetime.utcnow() + timedelta(days=30)
+        anagrafica["plan_expires_at"] = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=30)
     tenant = Tenant(**anagrafica)
     db.add(tenant)
     db.flush()
@@ -333,6 +333,5 @@ def delete_tenant(
     tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant non trovato")
-    from datetime import datetime
-    tenant.deleted_at = datetime.utcnow()
+    tenant.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()

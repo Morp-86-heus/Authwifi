@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, cast, Date
@@ -27,7 +27,7 @@ def get_site_stats(
         return cached
 
     tenant_id = current["tenant_id"]
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     start_of_day  = now.replace(hour=0, minute=0, second=0, microsecond=0)
     start_of_week = now - timedelta(days=7)
     start_30d     = now - timedelta(days=30)

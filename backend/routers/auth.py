@@ -24,7 +24,7 @@ class SetupDto(BaseModel):
 
 @router.post("/login")
 def login(dto: LoginDto, db: Session = Depends(get_db)):
-    from datetime import datetime
+    from datetime import datetime, timezone
     manager = db.query(Manager).filter(Manager.email == dto.email).first()
     if not manager or not verify_password(dto.password, manager.password_hash):
         raise HTTPException(
@@ -35,7 +35,7 @@ def login(dto: LoginDto, db: Session = Depends(get_db)):
         tenant = db.query(Tenant).filter(Tenant.id == manager.tenant_id).first()
         if tenant and tenant.is_suspended:
             raise HTTPException(status_code=403, detail="Account sospeso. Contatta il supporto.")
-        if tenant and tenant.plan_expires_at and tenant.plan_expires_at < datetime.utcnow():
+        if tenant and tenant.plan_expires_at and tenant.plan_expires_at < datetime.now(timezone.utc).replace(tzinfo=None):
             raise HTTPException(status_code=403, detail="Licenza scaduta. Rinnova il tuo abbonamento.")
     token = create_access_token(manager.id, manager.tenant_id, manager.role)
     return {"accessToken": token, "role": manager.role, "tenantId": manager.tenant_id}

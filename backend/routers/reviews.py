@@ -1,6 +1,6 @@
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -110,7 +110,7 @@ def sync_reviews(
         if existing:
             existing.rating = rev["rating"]
             existing.text = rev["text"]
-            existing.fetched_at = datetime.utcnow()
+            existing.fetched_at = datetime.now(timezone.utc).replace(tzinfo=None)
         else:
             db.add(ExternalReview(
                 site_id=site_id,
